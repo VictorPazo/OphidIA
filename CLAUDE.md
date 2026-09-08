@@ -46,8 +46,10 @@ directory. It exposes a single `POST /predict` endpoint (multipart image upload)
 `{snake_id, specie, confidence}`, where **`snake_id` is null** for any species not yet mapped in `SPECIE_TO_ID`
 (currently only the 26 *Bothrops* rows) — callers must handle that.
 
-`best_model.pth` is **not in git** (107 MB, over GitHub's 100 MB per-file limit; `*.pth` is gitignored). Copy it from
-`D:\treino_v2\checkpoints\` before starting the server. `ARCHITECTURE`, `IMG_SIZE` and `DROPOUT` at the top of
+`best_model.pth` is **not in git** (107 MB, over GitHub's 100 MB per-file limit; `*.pth` is gitignored). It ships as a
+release asset — download it into `lib/models/` before starting the server (see `SETUP.md` step 3):
+`https://github.com/VictorPazo/OphidIA/releases/download/ModeloConvNeXt-Tiny_v2/best_model.pth`. Each release's
+description names the commit whose `classes.json` it pairs with; a mismatched pair silently swaps predictions. `ARCHITECTURE`, `IMG_SIZE` and `DROPOUT` at the top of
 `main.py` must match `D:\treino_v2\config_utilizada.json` — a mismatch in the transform degrades accuracy silently
 rather than raising.
 

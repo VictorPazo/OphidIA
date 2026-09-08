@@ -36,19 +36,55 @@ Isso instala a build de **CPU** do PyTorch, que funciona normalmente (só mais l
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130
 ```
 
-## 3. Colocar os pesos do modelo
-
-**Este passo não tem como ser automatizado e é o que mais trava gente nova no projeto.**
+## 3. Baixar os pesos do modelo
 
 O arquivo `lib/models/best_model.pth` tem 107 MB — acima do limite de 100 MB por arquivo
-do GitHub. Por isso `*.pth` está no `.gitignore` e **o modelo não vem no clone**.
+do GitHub. Por isso `*.pth` está no `.gitignore` e **o modelo não vem no clone**: ele é
+distribuído como anexo de *release*. Sem esse arquivo o `uvicorn` nem sobe.
 
-Copie-o à mão para `lib/models/best_model.pth`. Na máquina de treino original ele está em
-`D:\treino_v2\checkpoints\best_model.pth`. Sem esse arquivo o `uvicorn` nem sobe.
+A partir da raiz do repositório:
 
-O `lib/models/classes.json` (246 espécies) **está** versionado e já vem no clone — mas ele
-e o `.pth` são um par: os dois têm que vir do mesmo treino, senão as predições saem
-silenciosamente trocadas.
+**Windows (PowerShell)**
+
+```powershell
+Invoke-WebRequest -Uri "https://github.com/VictorPazo/OphidIA/releases/download/ModeloConvNeXt-Tiny_v2/best_model.pth" -OutFile "lib\models\best_model.pth"
+```
+
+**Linux / macOS**
+
+```bash
+curl -L -o lib/models/best_model.pth \
+  https://github.com/VictorPazo/OphidIA/releases/download/ModeloConvNeXt-Tiny_v2/best_model.pth
+```
+
+O `-L` do curl não é opcional: o GitHub responde com um redirecionamento para a CDN e,
+sem ele, você baixa um arquivo vazio.
+
+### Conferir o download
+
+O arquivo tem exatamente **112.104.519 bytes** e o hash abaixo, que é o mesmo exibido na
+página do release:
+
+```
+sha256  9889bf699834bd70b996a52e8454f3aba34879c8ba9dfa5345ac17646dcc4c98
+```
+
+```powershell
+(Get-FileHash lib\models\best_model.pth -Algorithm SHA256).Hash
+```
+
+```bash
+sha256sum lib/models/best_model.pth
+```
+
+### O modelo e o `classes.json` são um par
+
+O `lib/models/classes.json` (246 espécies) **está** versionado e já vem no clone. Ele
+traduz o índice que a rede devolve para o nome da espécie, então os dois arquivos têm que
+vir do mesmo treino — senão as predições saem trocadas **sem gerar erro nenhum**.
+
+A descrição de cada release diz com qual commit ele pareia. O `ModeloConvNeXt-Tiny_v2`
+corresponde ao `classes.json` do commit `3cacdf1`.
 
 ## 4. Subir o servidor
 
@@ -107,5 +143,5 @@ Supabase.
 
 | Arquivo | Como obter |
 |---|---|
-| `lib/models/best_model.pth` | copiar da máquina de treino (107 MB, fora do git) |
+| `lib/models/best_model.pth` | baixar do [release `ModeloConvNeXt-Tiny_v2`](https://github.com/VictorPazo/OphidIA/releases/download/ModeloConvNeXt-Tiny_v2/best_model.pth) (107 MB, fora do git) — passo 3 |
 | `lib/scripts/.env` | criar à mão com as credenciais do Supabase |
