@@ -1,4 +1,8 @@
+import 'dart:async';
 import 'dart:io';
+import '../models/snake_model.dart';
+import '../models/upload_result.dart';
+import '../services/api_exceptions.dart';
 import '../services/upload_service.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter/services.dart';
@@ -409,7 +413,30 @@ class _CameraPageState
     );
   }
 
-  // 📸 CONFIRMAR FOTO
+  // Traduz uma exceção técnica numa mensagem de erro específica.
+  String _errorKeyFor(String step, Object e) {
+    if (e is SocketException) return '${step}_no_internet';
+    if (e is TimeoutException) return '${step}_timeout';
+    if (e is ServerException) return '${step}_server_error';
+    if (e is ClientException) return '${step}_client_error';
+    return '${step}_generic_error';
+  }
+
+  void _showStepError(String step, Object e, StackTrace stackTrace) {
+    final key = _errorKeyFor(step, e);
+
+    debugPrint('[$step] erro: $e');
+    debugPrint(stackTrace.toString());
+
+    if (!mounted) return;
+
+    setState(() => isConfirming = false);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(key.tr())),
+    );
+  }
+
   Future<void> confirmPhoto() async {
 
     final String imagePath = confirmImagePath!;
@@ -418,185 +445,109 @@ class _CameraPageState
       isConfirming = true;
     });
 
-    // 🚀 Upload, IA e GPS não dependem um do outro — disparamos os
-    // três ao mesmo tempo em vez de esperar cada um terminar para
-    // começar o próximo. Assim a espera real do usuário vira a do
-    // mais lento dos três, não a soma dos três.
-    final uploadFuture =
-    uploadService.uploadImage(File(imagePath));
+    final uploadFuture = uploadService.uploadImage(File(imagePath));
+    final predictionFuture = iaService.predictSnake(File(imagePath));
 
-    final predictionFuture =
-    iaService.predictSnake(File(imagePath));
+    // FIX: timeLimit adicionado — sem isso, getCurrentPosition() pode
+    // nunca completar, travando o app. GPS é opcional para armazenar no banco.
+    final positionFuture = Geolocator.getCurrentPosition(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        timeLimit: Duration(seconds: 10),
+      ),
+    ).then<Position?>((position) => position)
+        .catchError((e) {
+      debugPrint('GPS indisponível, seguindo sem localização: $e');
+      return null;
+    });
 
-    final positionFuture =
-    Geolocator.getCurrentPosition()
-        .then<Position?>((position) => position)
-        .catchError((e) => null);
-
-    // 🔥 UPLOAD
-    final uploadResult = await uploadFuture;
-
-    if (uploadResult == null) {
-
-      if (!mounted) return;
-
-      setState(() {
-        isConfirming = false;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            "upload_image_error".tr(),
-          ),
-        ),
-      );
-
+    final UploadResult uploadResult;
+    try {
+      uploadResult = await uploadFuture;
+    } catch (e, stackTrace) {
+      _showStepError('upload', e, stackTrace);
       return;
     }
 
-    // 🔥 IA
-    final prediction = await predictionFuture;
-
-    if (prediction == null) {
-
-      if (!mounted) return;
-
-      setState(() {
-        isConfirming = false;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            "ai_identification_error".tr(),
-          ),
-        ),
-      );
-
+    // IA
+    final Map<String, dynamic> prediction;
+    try {
+      prediction = await predictionFuture;
+    } catch (e, stackTrace) {
+      _showStepError('ai', e, stackTrace);
       return;
     }
 
     final snakeId = prediction['snake_id'];
-
     final confidence = prediction['confidence'];
 
-    // 🔥 COBRA
-    // O modelo reconhece 246 espécies, mas só as já cadastradas na tabela
-    // `snakes` têm id — nas demais o servidor devolve snake_id: null.
-    // Cai no mesmo tratamento de "espécie não encontrada" logo abaixo.
-    final snake = snakeId == null
-        ? null
-        : await snakeInformationService.getSnakeById(
-      snakeId,
-    );
+    // COBRA
+    final SnakeModel? snake;
+    try {
+      snake = snakeId == null
+          ? null
+          : await snakeInformationService.getSnakeById(snakeId);
+    } catch (e, stackTrace) {
+      _showStepError('snake', e, stackTrace);
+      return;
+    }
 
     if (snake == null) {
-
+      // snake_id null (espécie não cadastrada).
       if (!mounted) return;
-
-      setState(() {
-        isConfirming = false;
-      });
-
+      setState(() => isConfirming = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            "fetch_snake_error".tr(),
-          ),
-        ),
+        SnackBar(content: Text("fetch_snake_error".tr())),
       );
-
       return;
     }
 
-    // 🔥 USER
-    final user =
-        Supabase.instance.client.auth.currentUser;
+    final user = Supabase.instance.client.auth.currentUser;
 
-    // 🔥 GPS
+    // GPS —  nunca bloqueia a exibição do resultado.
+    // Se vier null (permissão negada, timeout, sem sinal),
+    // pula o insert no histórico logo abaixo.
     final position = await positionFuture;
 
-    if (position == null) {
+    if (position != null) {
 
-      if (!mounted) return;
-
-      setState(() {
-        isConfirming = false;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            "location_error".tr(),
-          ),
-        ),
+      Supabase.instance.client
+          .from('snake_historic')
+          .insert({
+        'profiles_id': user!.id,
+        'snakes_id': snake.id,
+        'image_url': uploadResult.filePath,
+        'data_photo': DateTime.now().toIso8601String(),
+        'latitude': position.latitude,
+        'longitude': position.longitude,
+      }).then(
+            (_) {},
+        onError: (e) {
+          debugPrint('Erro ao salvar histórico: $e');
+        },
       );
-
-      return;
+    } else {
+      debugPrint('Sem localização — histórico não foi salvo (Opção C).');
     }
-
-    // 🔥 HISTÓRICO
-    // Não é aguardado: o usuário já tem o resultado pronto pra ver,
-    // e uma falha aqui já era só registrada em log, nunca mostrada —
-    // não há motivo para fazê-lo esperar por essa escrita.
-    Supabase.instance.client
-
-        .from('snake_historic')
-
-        .insert({
-
-      'profiles_id': user!.id,
-
-      'snakes_id': snake.id,
-
-      'image_url': uploadResult.filePath,
-
-      'data_photo':
-      DateTime.now().toIso8601String(),
-
-      'latitude': position.latitude,
-
-      'longitude': position.longitude,
-    }).then(
-      (_) {},
-      onError: (e) {
-        debugPrint('Erro ao salvar histórico: $e');
-      },
-    );
 
     if (!mounted) return;
 
     HapticFeedback.heavyImpact();
 
-    // 🔥 INFO
-    // pushReplacement (não push): o usuário já concluiu a
-    // identificação, então ao voltar da tela de resultado ele deve
-    // cair direto na Home, sem passar de novo pela tela de câmera.
     Navigator.pushReplacement(
-
       context,
-
       AppPageRoute(
-
         builder: (_) => SnakeInformationScreen(
-
-          snake: snake,
-
-          confidence:
-          (confidence as num).toDouble(),
-
+          snake: snake!,
+          confidence: (confidence as num).toDouble(),
           imageUrl: uploadResult.filePath,
-
           heroTag: snakePhotoHeroTag,
         ),
-
         transition: AppTransition.slide,
       ),
     );
   }
 
-  // 🔄 NOVA FOTO
   void retakePhoto() {
 
     setState(() {

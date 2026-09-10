@@ -6,9 +6,10 @@ class SnakeInformationService {
 
   final supabase = Supabase.instance.client;
 
-  Future<SnakeModel?> getSnakeById(
-      int snakeId,
-      ) async {
+  // - Se o Supabase confirmar que não existe linha com esse id, a espécie não cadastrada.
+  // - Qualquer outro erro (rede, servidor, timeout) sobe como exceção,
+  //   pra CameraPage conseguir mostrar a mensagem específica certa.
+  Future<SnakeModel?> getSnakeById(int snakeId) async {
 
     try {
 
@@ -20,9 +21,12 @@ class SnakeInformationService {
 
       return SnakeModel.fromMap(response);
 
-    } catch (e) {
+    } on PostgrestException catch (e) {
 
-      return null;
+      if (e.code == 'PGRST116') {
+        return null;
+      }
+      rethrow;
     }
   }
 }

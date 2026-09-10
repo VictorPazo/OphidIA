@@ -128,6 +128,24 @@
   "dismiss_hint": "Dispensar dica",
 
   "location_unavailable_warning": "Não foi possível obter sua localização. Exibindo uma posição padrão no mapa.",
-  "load_markers_error": "Não foi possível carregar as identificações no mapa."
+  "load_markers_error": "Não foi possível carregar as identificações no mapa.",
+
+  "upload_no_internet": "Sem conexão com a internet. Verifique sua rede e tente novamente.",
+  "upload_timeout": "O envio da imagem demorou demais. Tente novamente.",
+  "upload_server_error": "Nosso servidor teve um problema ao processar sua imagem. Tente novamente em instantes.",
+  "upload_client_error": "Não foi possível enviar essa imagem. Tente outra foto.",
+  "upload_generic_error": "Ocorreu um erro ao enviar a imagem.",
+
+  "ai_no_internet": "Sem conexão com a internet. Verifique sua rede e tente novamente.",
+  "ai_timeout": "A identificação demorou demais. Tente novamente.",
+  "ai_server_error": "Nosso servidor de identificação teve um problema. Tente novamente em instantes.",
+  "ai_client_error": "Não foi possível processar essa imagem.",
+  "ai_generic_error": "Ocorreu um erro ao identificar a serpente.",
+
+  "snake_no_internet": "Sem conexão com a internet. Verifique sua rede e tente novamente.",
+  "snake_timeout": "A busca pelos dados da espécie demorou demais. Tente novamente.",
+  "snake_server_error": "Não foi possível buscar os dados da espécie no momento.",
+  "snake_client_error": "Erro ao buscar os dados da espécie.",
+  "snake_generic_error": "Ocorreu um erro ao buscar os dados da espécie."
 
 }

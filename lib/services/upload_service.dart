@@ -6,53 +6,24 @@ import '../models/upload_result.dart';
 
 class UploadService {
 
-  final supabase =
-      Supabase.instance.client;
+  final supabase = Supabase.instance.client;
 
-  Future<UploadResult?> uploadImage(
-      File file,
-      ) async {
+  Future<UploadResult> uploadImage(File file) async {
 
-    try {
+    final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+    final filePath = 'uploads/$fileName';
 
-      final fileName =
+    await supabase.storage
+        .from('user-history')
+        .upload(filePath, file);
 
-          '${DateTime.now().millisecondsSinceEpoch}.jpg';
+    final publicUrl = supabase.storage
+        .from('user-history')
+        .getPublicUrl(filePath);
 
-      final filePath =
-          'uploads/$fileName';
-
-      // 🔥 UPLOAD
-      await supabase.storage
-
-          .from('user-history')
-
-          .upload(
-        filePath,
-        file,
-      );
-
-      // 🔥 URL
-      final publicUrl =
-
-      supabase.storage
-
-          .from('user-history')
-
-          .getPublicUrl(filePath);
-
-      return UploadResult(
-
-        filePath: filePath,
-
-        signedUrl: publicUrl,
-      );
-
-    } catch (e) {
-
-      print("UPLOAD ERRO: $e");
-
-      return null;
-    }
+    return UploadResult(
+      filePath: filePath,
+      signedUrl: publicUrl,
+    );
   }
 }
