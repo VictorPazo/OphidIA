@@ -146,6 +146,10 @@
   "snake_timeout": "A busca pelos dados da espécie demorou demais. Tente novamente.",
   "snake_server_error": "Não foi possível buscar os dados da espécie no momento.",
   "snake_client_error": "Erro ao buscar os dados da espécie.",
-  "snake_generic_error": "Ocorreu um erro ao buscar os dados da espécie."
+  "snake_generic_error": "Ocorreu um erro ao buscar os dados da espécie.",
+
+  "save_history_error": "Não foi possível salvar no histórico. Tente novamente.",
+  "save_to_history": "Salvar no histórico",
+  "do_not_save": "Não salvar"
 
 }

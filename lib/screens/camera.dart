@@ -438,7 +438,6 @@ class _CameraPageState
   }
 
   Future<void> confirmPhoto() async {
-
     final String imagePath = confirmImagePath!;
 
     setState(() {
@@ -505,30 +504,7 @@ class _CameraPageState
     final user = Supabase.instance.client.auth.currentUser;
 
     // GPS —  nunca bloqueia a exibição do resultado.
-    // Se vier null (permissão negada, timeout, sem sinal),
-    // pula o insert no histórico logo abaixo.
     final position = await positionFuture;
-
-    if (position != null) {
-
-      Supabase.instance.client
-          .from('snake_historic')
-          .insert({
-        'profiles_id': user!.id,
-        'snakes_id': snake.id,
-        'image_url': uploadResult.filePath,
-        'data_photo': DateTime.now().toIso8601String(),
-        'latitude': position.latitude,
-        'longitude': position.longitude,
-      }).then(
-            (_) {},
-        onError: (e) {
-          debugPrint('Erro ao salvar histórico: $e');
-        },
-      );
-    } else {
-      debugPrint('Sem localização — histórico não foi salvo (Opção C).');
-    }
 
     if (!mounted) return;
 
@@ -537,12 +513,15 @@ class _CameraPageState
     Navigator.pushReplacement(
       context,
       AppPageRoute(
-        builder: (_) => SnakeInformationScreen(
-          snake: snake!,
-          confidence: (confidence as num).toDouble(),
-          imageUrl: uploadResult.filePath,
-          heroTag: snakePhotoHeroTag,
-        ),
+        builder: (_) =>
+            SnakeInformationScreen(
+              snake: snake!,
+              confidence: (confidence as num).toDouble(),
+              imageUrl: uploadResult.filePath,
+              heroTag: snakePhotoHeroTag,
+              latitude: position?.latitude,
+              longitude: position?.longitude,
+            ),
         transition: AppTransition.slide,
       ),
     );
@@ -1076,6 +1055,6 @@ class _CameraPageState
             ),
           ),
         ],
-      );
+    );
   }
 }
