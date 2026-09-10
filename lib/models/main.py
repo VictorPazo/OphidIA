@@ -13,6 +13,8 @@ from torchvision import transforms, models
 
 from PIL import Image
 
+from ultralytics import YOLO
+
 # =========================
 # CONFIG
 # =========================
@@ -24,6 +26,15 @@ BASE_DIR = Path(__file__).resolve().parent
 MODEL_PATH = BASE_DIR / "best_model.pth"
 
 CLASSES_PATH = BASE_DIR / "classes.json"
+
+# 🐍 YOLO — DETECÇÃO
+# Ajuste o nome do arquivo para o .pt que você já treinou.
+YOLO_MODEL_PATH = BASE_DIR / "detector_cobra.pt"
+
+# Confiança mínima para considerar que a detecção "achou" uma cobra.
+# Ajuste conforme testar com fotos reais — muito baixo deixa passar
+# falso positivo, muito alto manda gente real pro pop-up de "não achei".
+YOLO_CONF_THRESHOLD = 0.5
 
 # Estes três valores PRECISAM bater com o treino que gerou best_model.pth
 # (ver treino_v2/config_utilizada.json). Divergir aqui não gera erro — só
@@ -148,7 +159,7 @@ transform = transforms.Compose([
 ])
 
 # =========================
-# LOAD MODEL
+# LOAD MODEL (CLASSIFICADOR)
 # =========================
 
 # A cabeça é montada exatamente como em create_model() do treino:
@@ -174,6 +185,82 @@ model.load_state_dict(
 model.to(DEVICE)
 
 model.eval()
+
+# =========================
+# LOAD MODEL (YOLO — DETECÇÃO)
+# =========================
+
+yolo_model = YOLO(str(YOLO_MODEL_PATH))
+
+# =========================
+# DETECT ENDPOINT
+# =========================
+
+@app.post("/detect")
+
+async def detect(
+        file: UploadFile = File(...)
+):
+    """
+    Roda o YOLO na imagem enviada para checar se há uma cobra visível.
+
+    Retorna as coordenadas do bounding box em PIXELS, no espaço da
+    imagem ORIGINAL enviada (o ultralytics já reprojeta internamente,
+    então não é preciso reescalar aqui) — junto com a largura/altura
+    da imagem, para o app calcular o recorte sem precisar redecodificar
+    o arquivo do zero.
+    """
+
+    image_bytes = await file.read()
+
+    image = Image.open(
+        io.BytesIO(image_bytes)
+    ).convert("RGB")
+
+    width, height = image.size
+
+    results = yolo_model.predict(
+        image,
+        conf=YOLO_CONF_THRESHOLD,
+        verbose=False,
+    )
+
+    boxes = results[0].boxes
+
+    if boxes is None or len(boxes) == 0:
+
+        return {
+            "found": False,
+            "image_width": width,
+            "image_height": height,
+        }
+
+    # 🔍 MELHOR DETECÇÃO
+    # Se o YOLO achar mais de uma "cobra" na imagem, fica com a de
+    # maior confiança — o app só precisa de um quadrado pra dar zoom.
+    best_idx = boxes.conf.argmax().item()
+
+    x1, y1, x2, y2 = boxes.xyxy[best_idx].tolist()
+
+    confidence = boxes.conf[best_idx].item()
+
+    return {
+
+        "found": True,
+
+        "confidence": round(confidence * 100, 2),
+
+        "bbox": {
+            "x1": x1,
+            "y1": y1,
+            "x2": x2,
+            "y2": y2,
+        },
+
+        "image_width": width,
+        "image_height": height,
+    }
+
 
 # =========================
 # PREDICT ENDPOINT

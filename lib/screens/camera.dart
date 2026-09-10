@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:image/image.dart' as img;
 import '../models/snake_model.dart';
 import '../models/upload_result.dart';
 import '../services/api_exceptions.dart';
 import '../services/upload_service.dart';
+import '../services/yolo_service.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -44,6 +47,9 @@ class _CameraPageState
   final IAService iaService =
   IAService();
 
+  final YoloService yoloService =
+  YoloService();
+
   final SnakeInformationService
   snakeInformationService =
   SnakeInformationService();
@@ -60,6 +66,12 @@ class _CameraPageState
   bool confirmFromGallery = false;
 
   bool isConfirming = false;
+
+  // 🐍 DETECÇÃO YOLO
+  // isDetecting cobre a janela entre a foto ser tirada/escolhida e o
+  // YOLO responder se achou uma cobra ou não — usado só pra mostrar
+  // um loading diferente do de isConfirming (que é o upload+IA).
+  bool isDetecting = false;
 
   static const String snakePhotoHeroTag = 'snake_photo_hero';
 
@@ -437,6 +449,183 @@ class _CameraPageState
     );
   }
 
+  // 🐍 DETECÇÃO YOLO
+  // Chamado logo após a foto ser tirada/escolhida. Não bloqueia a
+  // exibição da foto (ela já aparece na tela de confirmação antes da
+  // resposta chegar) — só decide, quando a resposta chega, se dá o
+  // zoom no quadrado ou mostra o pop-up de "não achei".
+  Future<void> runSnakeDetection(String imagePath) async {
+
+    setState(() {
+      isDetecting = true;
+    });
+
+    final result = await yoloService.detectSnake(
+      File(imagePath),
+    );
+
+    if (!mounted) return;
+
+    if (result == null) {
+
+      // 🔌 Falha de rede ao chamar o YOLO — não trava o usuário por
+      // causa disso; segue pro fluxo normal como se não tivesse
+      // detecção nenhuma.
+      setState(() {
+        isDetecting = false;
+      });
+
+      return;
+    }
+
+    if (result.found) {
+
+      final croppedPath = await cropToBoundingBox(
+        imagePath,
+        result,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        confirmImagePath = croppedPath ?? imagePath;
+        isDetecting = false;
+      });
+
+    } else {
+
+      setState(() {
+        isDetecting = false;
+      });
+
+      showNoSnakeDialog();
+    }
+  }
+
+  // 🔍 RECORTE (ZOOM)
+  // Recorta a foto na região que o YOLO marcou, com 15% de margem
+  // (um recorte exato na borda da detecção costuma cortar parte do
+  // corpo da cobra). O resultado vira a nova confirmImagePath — ou
+  // seja, é essa versão recortada que o usuário vê e que segue pro
+  // classificador depois, não a foto inteira original.
+  Future<String?> cropToBoundingBox(
+      String imagePath,
+      DetectionResult result,
+      ) async {
+
+    if (result.x1 == null ||
+        result.y1 == null ||
+        result.x2 == null ||
+        result.y2 == null) {
+      return null;
+    }
+
+    try {
+
+      final bytes = await File(imagePath).readAsBytes();
+
+      final original = img.decodeImage(bytes);
+
+      if (original == null) return null;
+
+      const marginRatio = 0.15;
+
+      final boxWidth = result.x2! - result.x1!;
+      final boxHeight = result.y2! - result.y1!;
+
+      final marginX = boxWidth * marginRatio;
+      final marginY = boxHeight * marginRatio;
+
+      final cropX1 = (result.x1! - marginX)
+          .clamp(0, result.imageWidth.toDouble());
+
+      final cropY1 = (result.y1! - marginY)
+          .clamp(0, result.imageHeight.toDouble());
+
+      final cropX2 = (result.x2! + marginX)
+          .clamp(0, result.imageWidth.toDouble());
+
+      final cropY2 = (result.y2! + marginY)
+          .clamp(0, result.imageHeight.toDouble());
+
+      final cropped = img.copyCrop(
+        original,
+        x: cropX1.round(),
+        y: cropY1.round(),
+        width: (cropX2 - cropX1).round(),
+        height: (cropY2 - cropY1).round(),
+      );
+
+      final directory = await getTemporaryDirectory();
+
+      final croppedPath =
+          '${directory.path}/snake_crop_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      await File(croppedPath).writeAsBytes(
+        img.encodeJpg(cropped, quality: 90),
+      );
+
+      return croppedPath;
+
+    } catch (e) {
+
+      // Se o recorte falhar por qualquer motivo, segue com a foto
+      // original em vez de travar o fluxo.
+      return null;
+    }
+  }
+
+  // 🐍 POP-UP "NÃO ACHEI COBRA"
+  void showNoSnakeDialog() {
+
+    showDialog(
+
+      context: context,
+
+      barrierDismissible: false,
+
+      builder: (context) {
+
+        return AlertDialog(
+
+          title: Text(
+            "no_snake_found_title".tr(),
+          ),
+
+          content: Text(
+            "no_snake_found_message".tr(),
+          ),
+
+          actions: [
+
+            // ❌ NÃO — tira outra foto
+            TextButton(
+
+              onPressed: () {
+
+                Navigator.pop(context);
+
+                retakePhoto();
+              },
+
+              child: Text("no".tr()),
+            ),
+
+            // ✅ SIM — segue com a foto original, sem recorte
+            ElevatedButton(
+
+              onPressed: () {
+                Navigator.pop(context);
+              },
+
+              child: Text("yes".tr()),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> confirmPhoto() async {
     final String imagePath = confirmImagePath!;
 
@@ -450,10 +639,8 @@ class _CameraPageState
     // FIX: timeLimit adicionado — sem isso, getCurrentPosition() pode
     // nunca completar, travando o app. GPS é opcional para armazenar no banco.
     final positionFuture = Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        timeLimit: Duration(seconds: 10),
-      ),
+      desiredAccuracy: LocationAccuracy.high,
+      timeLimit: const Duration(seconds: 10),
     ).then<Position?>((position) => position)
         .catchError((e) {
       debugPrint('GPS indisponível, seguindo sem localização: $e');
@@ -531,6 +718,7 @@ class _CameraPageState
 
     setState(() {
       confirmImagePath = null;
+      isDetecting = false;
     });
   }
 
@@ -589,9 +777,29 @@ class _CameraPageState
 
               const SizedBox(height: AppSpacing.lg),
 
-              // ⏳ PROCESSANDO
-              if (isConfirming) ...[
+              // 🐍 DETECTANDO
+              // Loading separado do de isConfirming: aqui o YOLO ainda
+              // está checando se há cobra na foto, antes do usuário
+              // poder confirmar o envio pro classificador.
+              if (isDetecting) ...[
 
+                const CircularProgressIndicator(
+                  color: Colors.white,
+                ),
+
+                const SizedBox(height: AppSpacing.md),
+
+                Text(
+                  "detecting_snake".tr(),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppColors.onBackground,
+                  ),
+                ),
+
+              ] else if (isConfirming) ...[
+
+                // ⏳ PROCESSANDO
                 const CircularProgressIndicator(
                   color: Colors.white,
                 ),
@@ -680,6 +888,8 @@ class _CameraPageState
         confirmImagePath = image.path;
         confirmFromGallery = false;
       });
+
+      await runSnakeDetection(image.path);
     }
   }
 
@@ -698,6 +908,8 @@ class _CameraPageState
         confirmImagePath = image.path;
         confirmFromGallery = true;
       });
+
+      await runSnakeDetection(image.path);
     }
   }
 

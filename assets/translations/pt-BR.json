@@ -142,6 +142,10 @@
   "ai_client_error": "Não foi possível processar essa imagem.",
   "ai_generic_error": "Ocorreu um erro ao identificar a serpente.",
 
+  "detecting_snake": "Verificando se há uma cobra na foto...",
+  "no_snake_found_title": "Nenhuma cobra encontrada",
+  "no_snake_found_message": "O nosso identificador não encontrou nenhuma espécie na imagem. Deseja enviar mesmo assim?",
+
   "snake_no_internet": "Sem conexão com a internet. Verifique sua rede e tente novamente.",
   "snake_timeout": "A busca pelos dados da espécie demorou demais. Tente novamente.",
   "snake_server_error": "Não foi possível buscar os dados da espécie no momento.",

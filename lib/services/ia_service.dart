@@ -10,7 +10,7 @@ class IAService {
 
   // Colocar ip da máquina local
   // Formato - 'http://SEUIP:8000'
-  final String baseUrl = 'AQUI';
+  final String baseUrl = 'http:IP:8000';
 
   // Tipos de falha sinalizados :
   // - SocketException: sem conexão com o servidor (rede caiu, IP errado)
