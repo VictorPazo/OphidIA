@@ -921,7 +921,7 @@ class _CameraPageState
 
                   Image.asset(
 
-                    'assets/logo.png',
+                    'assets/UI-UX/logo.png',
 
                     width: 65,
                     height: 65,

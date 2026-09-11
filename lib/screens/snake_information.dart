@@ -6,7 +6,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/snake_model.dart';
 import '../theme/app_theme.dart';
 import '../theme/animated_entrance.dart';
-import '../screens/screens.dart'; // HomePage, HistoryPage
+import '../screens/screens.dart';
+import '../utils/dentition_helper.dart';
 
 class SnakeInformationScreen
     extends StatefulWidget {
@@ -210,7 +211,7 @@ class _SnakeInformationScreenState
                       "poisonous".tr(),
                       widget.snake.poisonous ? "yes".tr() : "no".tr(),
                     ),
-                    infoRow(
+                    dentitionRow(
                       "dentition_type".tr(),
                       widget.snake.dentition_type.toString(),
                     ),
@@ -370,6 +371,36 @@ class _SnakeInformationScreenState
           Expanded(
             child: Text(value, style: const TextStyle(fontSize: 16)),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget dentitionRow(String title, String value) {
+
+    final imageAsset = dentitionImageAsset(value);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            '$title: ',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          Expanded(
+            child: Text(value, style: const TextStyle(fontSize: 16)),
+          ),
+          if (imageAsset != null) ...[
+            const SizedBox(width: AppSpacing.sm),
+            Image.asset(
+              imageAsset,
+              width: 48,
+              height: 48,
+              fit: BoxFit.contain,
+            ),
+          ],
         ],
       ),
     );

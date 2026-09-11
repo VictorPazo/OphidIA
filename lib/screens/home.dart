@@ -319,7 +319,7 @@ class _HomePageState extends State<HomePage> {
 
               Image.asset(
 
-                'assets/logo.png',
+                'assets/UI-UX/logo.png',
 
                 width: 90,
                 height: 90,
