@@ -664,22 +664,27 @@ class _CameraPageState
       return;
     }
 
-    final snakeId = prediction['snake_id'];
+    final specie = prediction['specie'] as String?;
     final confidence = prediction['confidence'];
 
     // COBRA
+    // A busca é pelo NOME científico, e não pelo snake_id: o servidor de
+    // inferência só mapeia id para as espécies escritas à mão no
+    // SPECIE_TO_ID, enquanto o nome vem para todas as 246 que o modelo
+    // reconhece. Assim, qualquer espécie já cadastrada na tabela `snakes`
+    // exibe a ficha, sem precisar mexer no servidor.
     final SnakeModel? snake;
     try {
-      snake = snakeId == null
+      snake = specie == null
           ? null
-          : await snakeInformationService.getSnakeById(snakeId);
+          : await snakeInformationService.getSnakeBySpecie(specie);
     } catch (e, stackTrace) {
       _showStepError('snake', e, stackTrace);
       return;
     }
 
     if (snake == null) {
-      // snake_id null (espécie não cadastrada).
+      // Espécie identificada, mas ainda sem linha na tabela `snakes`.
       if (!mounted) return;
       setState(() => isConfirming = false);
       ScaffoldMessenger.of(context).showSnackBar(
