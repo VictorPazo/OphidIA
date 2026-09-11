@@ -3,87 +3,57 @@
   "tutorial_title": "Modo de uso:",
   "tutorial_never_show": "Não mostrar novamente",
   "close": "Fechar",
-
-  "tutorial_text":
-  "1. Capture em local iluminado.\n\n2. Foto nítida.\n\n3. Centralize a serpente.\n\n4. Use galeria se quiser.\n\nMantenha distância segura!",
-
+  "tutorial_text": "1. Capture em local iluminado.\n\n2. Foto nítida.\n\n3. Enquadre o CORPO da serpente, não só a cabeça. A identificação depende do padrão do corpo.\n\n4. Use galeria se quiser.\n\nMantenha distância segura!",
   "confirm_title": "Deseja:",
   "confirm_capture": "Confirmar captura",
   "new_capture": "Realizar nova captura",
-
   "confirm_new_photo": "Confirmar nova foto",
   "choose_new_photo": "Escolher nova foto",
   "identify_snake": "Identificar serpente",
   "tap_take_photo": "Toque para tirar uma foto",
   "processing_image": "Identificando serpente...",
-
   "settings": "Configurações",
   "home": "Início",
   "history": "Histórico",
   "camera": "Câmera",
-
   "welcome": "Bem vindo!",
-
   "logout": "Sair",
-
   "account": "Conta",
   "preferences": "Preferências",
   "ai": "Inteligência Artificial",
-
   "language": "Idioma",
   "about": "Sobre",
-
   "user": "Usuário",
   "no_email": "Sem email",
-
   "enable_notifications": "Ativar notificações",
   "show_tutorial_again": "Mostrar tutorial novamente",
-
   "tutorial_reset": "Tutorial reativado com sucesso!",
-
   "show_ai_confidence": "Mostrar confiança da IA",
   "show_accuracy_percentage": "Exibir porcentagem de acerto",
-
   "automatic_flash": "Flash automático",
-
   "language_changed_pt": "Idioma alterado para Português",
   "language_changed_en": "Idioma alterado para Inglês",
-
-
-
   "login_subtitle": "Tire todas suas dúvidas sobre as serpentes brasileiras.",
-
   "email": "Email",
   "password": "Senha",
-
   "login": "LOGIN",
-
   "create_account": "Não tem conta? Criar uma nova",
-
   "no_history": "Nenhuma identificação encontrada",
-
   "poisonous": "Venenosa",
   "non_poisonous": "Não venenosa",
-
   "confidence": "Confiança",
   "date": "Data",
-
   "snake_identified": "Serpente identificada",
-
   "family": "Família",
   "genus": "Gênero",
   "venom_type": "Tipo de veneno",
   "dangerousness": "Periculosidade",
   "antivenom": "Antiveneno",
-
   "description": "Descrição",
-
   "yes": "Sim",
   "no": "Não",
-
   "not_informed": "Não informado",
   "no_description": "Sem descrição",
-
   "forgot_password": "Esqueceu a senha?",
   "reset_password": "Redefinir senha",
   "cancel": "Cancelar",
@@ -94,66 +64,60 @@
   "delete": "Excluir",
   "history_deleted": "Histórico removido",
   "you_are_here": "Você está aqui",
-
   "camera_not_found": "Nenhuma câmera foi encontrada neste dispositivo.",
   "camera_permission_denied": "Não foi possível acessar a câmera. Verifique se a permissão de câmera foi concedida ao aplicativo nas configurações do seu dispositivo.",
   "camera_generic_error": "Não foi possível iniciar a câmera. Tente novamente.",
   "try_again": "Tentar novamente",
-
   "ai_confidence": "Confiança da IA",
   "medical_disclaimer_title": "Aviso importante",
   "medical_disclaimer_text": "Este aplicativo não substitui a avaliação de um médico ou biólogo. Em caso de acidente com serpente, procure atendimento médico imediatamente. O OphidIA serve apenas como ferramenta de apoio e curiosidade.",
-
   "dentition_type": "Tipo de dentição",
   "unknown_species": "Desconhecida",
-
   "upload_image_error": "Erro ao enviar imagem",
   "ai_identification_error": "Erro na identificação da IA",
   "fetch_snake_error": "Erro ao buscar cobra",
   "location_error": "Não foi possível obter sua localização. Verifique se o GPS está ativado e a permissão foi concedida.",
-
   "open_gallery": "Abrir galeria",
   "back_to_home": "Voltar para o início",
-
   "preferences_saved": "Preferências salvas",
-
   "logout_confirm_title": "Sair da conta?",
   "logout_confirm_text": "Tem certeza que deseja sair da sua conta?",
-
   "toggle_flash": "Alternar flash",
   "switch_camera": "Trocar câmera",
   "flash_unavailable": "Flash não disponível nesta câmera",
-
   "swipe_to_delete_hint": "Arraste um item para a esquerda para excluí-lo",
   "dismiss_hint": "Dispensar dica",
-
   "location_unavailable_warning": "Não foi possível obter sua localização. Exibindo uma posição padrão no mapa.",
   "load_markers_error": "Não foi possível carregar as identificações no mapa.",
-
   "upload_no_internet": "Sem conexão com a internet. Verifique sua rede e tente novamente.",
   "upload_timeout": "O envio da imagem demorou demais. Tente novamente.",
   "upload_server_error": "Nosso servidor teve um problema ao processar sua imagem. Tente novamente em instantes.",
   "upload_client_error": "Não foi possível enviar essa imagem. Tente outra foto.",
   "upload_generic_error": "Ocorreu um erro ao enviar a imagem.",
-
   "ai_no_internet": "Sem conexão com a internet. Verifique sua rede e tente novamente.",
   "ai_timeout": "A identificação demorou demais. Tente novamente.",
   "ai_server_error": "Nosso servidor de identificação teve um problema. Tente novamente em instantes.",
   "ai_client_error": "Não foi possível processar essa imagem.",
   "ai_generic_error": "Ocorreu um erro ao identificar a serpente.",
-
   "detecting_snake": "Verificando se há uma cobra na foto...",
-  "no_snake_found_title": "Nenhuma cobra encontrada",
-  "no_snake_found_message": "O nosso identificador não encontrou nenhuma espécie na imagem. Deseja enviar mesmo assim?",
-
+  "no_snake_found_title": "Não tenho certeza de que há uma cobra aqui",
+  "no_snake_found_message": "A detecção automática não localizou a serpente nesta foto. Isso costuma acontecer quando o animal está distante, camuflado ou com pouca luz — e não significa necessariamente que não há uma cobra na imagem.\n\nVocê pode identificar assim mesmo. O reconhecimento de espécie é uma etapa separada e costuma acertar mesmo quando a detecção falha.",
   "snake_no_internet": "Sem conexão com a internet. Verifique sua rede e tente novamente.",
   "snake_timeout": "A busca pelos dados da espécie demorou demais. Tente novamente.",
   "snake_server_error": "Não foi possível buscar os dados da espécie no momento.",
   "snake_client_error": "Erro ao buscar os dados da espécie.",
   "snake_generic_error": "Ocorreu um erro ao buscar os dados da espécie.",
-
   "save_history_error": "Não foi possível salvar no histórico. Tente novamente.",
   "save_to_history": "Salvar no histórico",
-  "do_not_save": "Não salvar"
-
+  "do_not_save": "Não salvar",
+  "no_snake_tips_title": "PARA UM RESULTADO MELHOR",
+  "no_snake_tip_distance": "Aproxime-se, mantendo distância segura do animal",
+  "no_snake_tip_light": "Procure boa iluminação e evite sombras sobre o corpo",
+  "no_snake_tip_frame": "Deixe a serpente no centro, ocupando boa parte da foto",
+  "identify_anyway": "Identificar mesmo assim",
+  "take_another_photo": "Tirar outra foto",
+  "other_possibilities": "Outras possibilidades",
+  "other_possibilities_hint": "O reconhecimento acerta a espécie na primeira posição em cerca de 3 de cada 4 fotos. Se o animal não corresponde ao resultado acima, veja se é uma destas:",
+  "species_not_registered": "Ainda sem ficha cadastrada",
+  "no_snake_tip_body": "Enquadre o corpo, e não só a cabeça. A identificação depende do padrão do corpo."
 }

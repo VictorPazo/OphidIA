@@ -480,15 +480,32 @@ class _CameraPageState
 
     if (result.found) {
 
-      final croppedPath = await cropToBoundingBox(
-        imagePath,
-        result,
-      );
-
+      // 📏 RECORTE DESLIGADO
+      //
+      // A hipótese era que recortar o fundo ajudaria o classificador. Medido
+      // em 150 fotos reais, reproduzindo este mesmo fluxo, o efeito é o
+      // contrário:
+      //
+      //   sem recorte   139/150 corretas (92,7%), confiança média 77,5%
+      //   com recorte   128/150 corretas (85,3%), confiança média 73,6%
+      //
+      // Das 58 fotos efetivamente recortadas, o recorte CONSERTOU 1 e
+      // ESTRAGOU 12. Não é ruído: doze para um.
+      //
+      // A causa é que o classificador foi treinado com fotos inteiras, com a
+      // cobra em contexto. O recorte remove justamente o que ele aprendeu a
+      // usar e entrega um enquadramento que ele nunca viu no treino.
+      //
+      // O YOLO continua valendo como FILTRO — avisar quando não há cobra
+      // evidente na foto é um serviço real ao usuário. O que saiu foi ele
+      // alimentar o classificador.
+      //
+      // Para religar, basta voltar a chamar cropToBoundingBox aqui; o método
+      // segue intacto logo abaixo, com a guarda de 60% que ele já tinha.
       if (!mounted) return;
 
       setState(() {
-        confirmImagePath = croppedPath ?? imagePath;
+        confirmImagePath = imagePath;
         isDetecting = false;
       });
 
@@ -520,6 +537,39 @@ class _CameraPageState
       return null;
     }
 
+    final boxWidth = result.x2! - result.x1!;
+    final boxHeight = result.y2! - result.y1!;
+
+    // 🔎 FOTO JÁ PRÓXIMA: NÃO RECORTAR
+    //
+    // O recorte existe para tirar fundo de foto distante, onde a cobra ocupa
+    // pouco do quadro. Quando ela JÁ ocupa boa parte, aproximar mais só
+    // remove o contexto de que o classificador depende.
+    //
+    // Medido recortando progressivamente a mesma foto de Spilotes pullatus:
+    //
+    //   foto inteira   9/10 corretas, 94% de confiança média
+    //   50% do lado    9/10 corretas, 83%
+    //   30% do lado    5/10 corretas, 80%
+    //   20% do lado    1/10 correta,  35%   <- vira chute
+    //
+    // O modelo decide pelo PADRÃO DO CORPO (no caso da caninana, as faixas
+    // amarelas e pretas ao longo do dorso). Num macro de cabeça esse sinal
+    // não existe e sobram escamas genéricas, então ele responde espécies sem
+    // parentesco nenhum. Recortar uma foto que já é close piora exatamente
+    // isso.
+    final areaBox = boxWidth * boxHeight;
+    final areaFoto =
+        result.imageWidth.toDouble() * result.imageHeight.toDouble();
+
+    const ocupacaoMaxima = 0.60;
+
+    if (areaFoto > 0 && areaBox / areaFoto >= ocupacaoMaxima) {
+      // Devolve null: runSnakeDetection já trata isso mantendo a foto
+      // original, que é justamente o que queremos aqui.
+      return null;
+    }
+
     try {
 
       final bytes = await File(imagePath).readAsBytes();
@@ -529,9 +579,6 @@ class _CameraPageState
       if (original == null) return null;
 
       const marginRatio = 0.15;
-
-      final boxWidth = result.x2! - result.x1!;
-      final boxHeight = result.y2! - result.y1!;
 
       final marginX = boxWidth * marginRatio;
       final marginY = boxHeight * marginRatio;
@@ -576,6 +623,22 @@ class _CameraPageState
   }
 
   // 🐍 POP-UP "NÃO ACHEI COBRA"
+  // 🔍 DETECÇÃO SEM RESULTADO
+  //
+  // O detector erra por omissão: nas medições com 60 fotos reais ele deixa de
+  // achar a cobra em cerca de 35% das imagens legítimas, normalmente quando o
+  // animal está distante, camuflado ou mal iluminado. Ou seja, "não achei" é
+  // uma INCERTEZA, não um veredito de que não há cobra na foto.
+  //
+  // Por isso o diálogo informa em vez de barrar, e é escrito para isso:
+  //  - o título admite a incerteza, em vez de afirmar que não há cobra;
+  //  - o texto separa detecção de identificação, que são etapas diferentes;
+  //  - as dicas explicam o que costuma resolver, em vez de só avisar do erro;
+  //  - os botões dizem o que vai acontecer, no lugar de "Sim" e "Não", que
+  //    obrigavam o usuário a reler a pergunta para saber qual era qual.
+  //
+  // Seguir em frente continua sendo a ação primária: o classificador acerta
+  // muitas fotos que o detector recusa.
   void showNoSnakeDialog() {
 
     showDialog(
@@ -586,43 +649,155 @@ class _CameraPageState
 
       builder: (context) {
 
-        return AlertDialog(
+        return Dialog(
 
-          title: Text(
-            "no_snake_found_title".tr(),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
           ),
 
-          content: Text(
-            "no_snake_found_message".tr(),
+          child: Container(
+
+            padding: const EdgeInsets.all(AppSpacing.lg),
+
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+
+            child: Column(
+
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+
+              children: [
+
+                // Ícone em círculo suave: sinaliza "busca sem resultado" sem o
+                // vermelho de erro, que daria a entender que algo falhou.
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.sm + 2),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFEAF0EC),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.search_off_rounded,
+                    size: 26,
+                    color: AppColors.accent,
+                  ),
+                ),
+
+                const SizedBox(height: AppSpacing.md),
+
+                Text(
+                  "no_snake_found_title".tr(),
+                  style: const TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.bold,
+                    height: 1.25,
+                  ),
+                ),
+
+                const SizedBox(height: AppSpacing.sm),
+
+                Text(
+                  "no_snake_found_message".tr(),
+                  style: const TextStyle(
+                    fontSize: 14.5,
+                    height: 1.45,
+                    color: Colors.black87,
+                  ),
+                ),
+
+                const SizedBox(height: AppSpacing.md),
+
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF2F5F2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "no_snake_tips_title".tr(),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.8,
+                          color: Colors.black54,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      noSnakeTip("no_snake_tip_distance".tr()),
+                      noSnakeTip("no_snake_tip_light".tr()),
+                      noSnakeTip("no_snake_tip_frame".tr()),
+                      noSnakeTip("no_snake_tip_body".tr()),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: AppSpacing.lg),
+
+                // Ação primária: identificar assim mesmo. O classificador
+                // acerta boa parte das fotos que o detector recusa, então
+                // empurrar o usuário a repetir a foto seria o padrão errado.
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text("identify_anyway".tr()),
+                  ),
+                ),
+
+                const SizedBox(height: AppSpacing.xs),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      retakePhoto();
+                    },
+                    child: Text("take_another_photo".tr()),
+                  ),
+                ),
+              ],
+            ),
           ),
-
-          actions: [
-
-            // ❌ NÃO — tira outra foto
-            TextButton(
-
-              onPressed: () {
-
-                Navigator.pop(context);
-
-                retakePhoto();
-              },
-
-              child: Text("no".tr()),
-            ),
-
-            // ✅ SIM — segue com a foto original, sem recorte
-            ElevatedButton(
-
-              onPressed: () {
-                Navigator.pop(context);
-              },
-
-              child: Text("yes".tr()),
-            ),
-          ],
         );
       },
+    );
+  }
+
+  Widget noSnakeTip(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 5),
+            child: Icon(
+              Icons.circle,
+              size: 5,
+              color: AppColors.accent,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: 13.5,
+                height: 1.4,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -713,6 +888,12 @@ class _CameraPageState
               heroTag: snakePhotoHeroTag,
               latitude: position?.latitude,
               longitude: position?.longitude,
+
+              // Top-3 do classificador. Servidores antigos não mandam o
+              // campo, então a lista vazia é o padrão e a tela apenas não
+              // exibe o bloco de alternativas.
+              ranking: ((prediction['ranking'] as List?) ?? [])
+                  .cast<Map<String, dynamic>>(),
             ),
         transition: AppTransition.slide,
       ),

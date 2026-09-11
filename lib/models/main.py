@@ -32,9 +32,24 @@ CLASSES_PATH = BASE_DIR / "classes.json"
 YOLO_MODEL_PATH = BASE_DIR / "detector_cobra.pt"
 
 # Confiança mínima para considerar que a detecção "achou" uma cobra.
-# Ajuste conforme testar com fotos reais — muito baixo deixa passar
-# falso positivo, muito alto manda gente real pro pop-up de "não achei".
-YOLO_CONF_THRESHOLD = 0.5
+#
+# Medido em 60 fotos reais do dataset, com o detector treinado em 10/09/2026
+# (yolov8s, 400 épocas). Os falsos positivos foram contados em 8 imagens
+# sem cobra nenhuma:
+#
+#   limiar   detecta   falso positivo
+#     0.50      12%          0/8        <- descartava 7 de cada 8 fotos boas
+#     0.30      52%          0/8
+#     0.25      58%          0/8        <- escolhido
+#     0.15      77%          0/8
+#
+# Este detector é conservador: dá notas baixas, mas não inventa cobra onde
+# não há — zero falso positivo em TODOS os limiares testados. Por isso vale
+# baixar o corte. 0.25 mais que quadruplica a detecção sem custo algum em
+# precisão. 0.15 renderia mais ainda, e continua sem falso positivo na
+# amostra; ficou de fora só por ser uma margem estreita demais para confiar
+# com 8 imagens de controle.
+YOLO_CONF_THRESHOLD = 0.25
 
 # Estes três valores PRECISAM bater com o treino que gerou best_model.pth
 # (ver treino_v2/config_utilizada.json). Divergir aqui não gera erro — só
@@ -49,6 +64,11 @@ DROPOUT = 0.4
 # É o que produz os 76,82% de accuracy relatados; sem TTA são 76,42%.
 # Custa uma segunda passagem pela rede por imagem.
 USE_TTA = True
+
+# Quantas espécies o /predict devolve no campo "ranking", da mais provável
+# para a menos. Três é o número que fecha com a métrica relatada do modelo
+# (89,95% de acerto no top-3).
+TOP_K = 3
 
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 
@@ -298,18 +318,38 @@ async def predict(
 
             probs = (probs + probs_flip) / 2
 
-        confidence, predicted = torch.max(probs, 1)
+        # 🥉 TOP-3
+        # O modelo acerta 76,8% no top-1 e 90,0% no top-3 — ou seja, em 13%
+        # das fotos a espécie certa está na 2ª ou 3ª posição. Devolver as
+        # alternativas deixa o app oferecer essa margem ao usuário, em vez
+        # de descartá-la.
+        top_conf, top_idx = torch.topk(probs, TOP_K, dim=1)
 
-    specie = to_scientific_name(
-        class_names[predicted.item()]
-    )
+    ranking = []
+
+    for conf, idx in zip(top_conf[0].tolist(), top_idx[0].tolist()):
+
+        nome = to_scientific_name(class_names[idx])
+
+        ranking.append({
+            "specie": nome,
+            "snake_id": SPECIE_TO_ID.get(nome),
+            "confidence": round(conf * 100, 2),
+        })
+
+    principal = ranking[0]
 
     return {
 
-        "snake_id": SPECIE_TO_ID.get(specie),
+        # Os três campos originais seguem no topo da resposta: versões
+        # antigas do app continuam funcionando sem alteração.
+        "snake_id": principal["snake_id"],
 
-        "specie": specie,
+        "specie": principal["specie"],
 
-        "confidence":
-        round(confidence.item() * 100, 2)
+        "confidence": principal["confidence"],
+
+        # Inclui a própria espécie principal na primeira posição, para o app
+        # poder renderizar o ranking inteiro sem remontar a lista.
+        "ranking": ranking,
     }

@@ -4,13 +4,14 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import 'api_config.dart';
 import 'api_exceptions.dart';
 
 class IAService {
 
-  // Colocar ip da máquina local
-  // Formato - 'http://SEUIP:8000'
-  final String baseUrl = 'http:IP:8000';
+  // Endereço do servidor em api_config.dart — o mesmo que o YoloService
+  // usa. Troque lá, num lugar só.
+  final String baseUrl = ApiConfig.baseUrl;
 
   // Tipos de falha sinalizados :
   // - SocketException: sem conexão com o servidor (rede caiu, IP errado)

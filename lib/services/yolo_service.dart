@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import 'api_config.dart';
+
 // 🐍 RESULTADO DA DETECÇÃO
 // Guarda tudo que a tela de câmera precisa: se achou, o quadrado em
 // pixels (espaço da imagem original) e as dimensões da imagem — o
@@ -52,10 +54,9 @@ class DetectionResult {
 
 class YoloService {
 
-  // ⚠️ Troque pelo mesmo baseUrl usado em agent_service.dart — o ideal
-  // é os dois lerem de uma única constante compartilhada, em vez de
-  // duplicar o endereço do servidor em dois arquivos.
-  static const String baseUrl = 'http://IP:8000';
+  // Endereço do servidor em api_config.dart — o mesmo que o IAService
+  // usa. Troque lá, num lugar só.
+  static const String baseUrl = ApiConfig.baseUrl;
 
   Future<DetectionResult?> detectSnake(File imageFile) async {
 

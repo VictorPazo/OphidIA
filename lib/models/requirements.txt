@@ -22,6 +22,10 @@ python-multipart>=0.0.29
 
 pillow>=12.0.0
 
+# YOLO (endpoint /detect): carrega o detector_cobra.pt, que e um
+# checkpoint do ultralytics e nem abre sem esta biblioteca.
+ultralytics>=8.4.0
+
 # --- Somente para os scripts de treino/avaliação desta mesma pasta ---
 # (treinamento_ia_atualizado.py, classificacao_em_teste.py, augmentation.py).
 # O servidor não precisa de nenhum destes.

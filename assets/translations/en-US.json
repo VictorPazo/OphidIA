@@ -3,86 +3,57 @@
   "tutorial_title": "How to use:",
   "tutorial_never_show": "Don't show again",
   "close": "Close",
-
-  "tutorial_text":
-  "1. Capture in a well-lit place.\n\n2. Use a clear image.\n\n3. Center the snake.\n\n4. Use gallery if desired.\n\nKeep a safe distance!",
-
+  "tutorial_text": "1. Shoot in a well-lit place.\n\n2. Keep the photo sharp.\n\n3. Frame the snake's BODY, not just the head. Identification relies on the body pattern.\n\n4. Use the gallery if you prefer.\n\nKeep a safe distance!",
   "confirm_title": "Do you want to:",
-
   "confirm_capture": "Confirm capture",
   "new_capture": "Take another photo",
-
   "confirm_new_photo": "Confirm new photo",
   "choose_new_photo": "Choose another photo",
-
   "identify_snake": "Identify snake",
   "tap_take_photo": "Tap to take a photo",
   "processing_image": "Identifying snake...",
-
   "settings": "Settings",
   "home": "Home",
   "history": "History",
   "camera": "Camera",
-
   "welcome": "Welcome!",
   "account": "Account",
   "preferences": "Preferences",
   "ai": "Artificial Intelligence",
-
   "language": "Language",
   "about": "About",
-
   "user": "User",
   "no_email": "No email",
-
   "enable_notifications": "Enable notifications",
   "show_tutorial_again": "Show tutorial again",
-
   "tutorial_reset": "Tutorial successfully reactivated!",
-
   "show_ai_confidence": "Show AI confidence",
   "show_accuracy_percentage": "Display accuracy percentage",
-
   "automatic_flash": "Automatic flash",
-
   "language_changed_pt": "Language changed to Portuguese",
   "language_changed_en": "Language changed to English",
-
   "logout": "Logout",
-
   "login_subtitle": "Clear all your doubts about Brazilian snakes.",
-
   "email": "Email",
   "password": "Password",
-
   "login": "LOGIN",
-
   "create_account": "Don't have an account? Create one",
-
   "no_history": "No identifications found",
-
   "poisonous": "Poisonous",
   "non_poisonous": "Non poisonous",
-
   "confidence": "Confidence",
   "date": "Date",
-
   "snake_identified": "Snake identified",
-
   "family": "Family",
   "genus": "Genus",
   "venom_type": "Venom type",
   "dangerousness": "Dangerousness",
   "antivenom": "Antivenom",
-
   "description": "Description",
-
   "yes": "Yes",
   "no": "No",
-
   "not_informed": "Not informed",
   "no_description": "No description",
-
   "forgot_password": "Forgot password?",
   "reset_password": "Reset password",
   "cancel": "Cancel",
@@ -93,40 +64,41 @@
   "delete": "Delete",
   "history_deleted": "History removed",
   "you_are_here": "You are here",
-
   "camera_not_found": "No camera was found on this device.",
   "camera_permission_denied": "Couldn't access the camera. Please check that camera permission was granted to the app in your device settings.",
   "camera_generic_error": "Couldn't start the camera. Please try again.",
   "try_again": "Try again",
-
   "ai_confidence": "AI confidence",
   "medical_disclaimer_title": "Important notice",
   "medical_disclaimer_text": "This app does not replace the evaluation of a doctor or biologist. In case of a snake bite accident, seek medical care immediately. OphidIA is intended only as a support tool and for educational curiosity.",
-
   "dentition_type": "Dentition type",
   "unknown_species": "Unknown",
-
   "upload_image_error": "Error uploading image",
   "ai_identification_error": "AI identification error",
   "fetch_snake_error": "Error fetching snake",
   "location_error": "Couldn't get your location. Please check that GPS is turned on and permission was granted.",
-
   "open_gallery": "Open gallery",
   "back_to_home": "Back to home",
-
   "preferences_saved": "Preferences saved",
-
   "logout_confirm_title": "Log out?",
   "logout_confirm_text": "Are you sure you want to log out of your account?",
-
   "toggle_flash": "Toggle flash",
   "switch_camera": "Switch camera",
   "flash_unavailable": "Flash not available on this camera",
-
   "swipe_to_delete_hint": "Swipe an item to the left to delete it",
   "dismiss_hint": "Dismiss hint",
-
   "location_unavailable_warning": "Couldn't get your location. Showing a default position on the map.",
-  "load_markers_error": "Couldn't load the sightings on the map."
-
+  "load_markers_error": "Couldn't load the sightings on the map.",
+  "no_snake_found_title": "I'm not sure there's a snake here",
+  "no_snake_found_message": "Automatic detection didn't locate the snake in this photo. This usually happens when the animal is far away, camouflaged or poorly lit — and it doesn't necessarily mean there is no snake in the image.\n\nYou can identify it anyway. Species recognition is a separate step and often succeeds even when detection fails.",
+  "no_snake_tips_title": "FOR A BETTER RESULT",
+  "no_snake_tip_distance": "Get closer, keeping a safe distance from the animal",
+  "no_snake_tip_light": "Look for good lighting and avoid shadows on the body",
+  "no_snake_tip_frame": "Keep the snake centred, filling much of the frame",
+  "identify_anyway": "Identify anyway",
+  "take_another_photo": "Take another photo",
+  "other_possibilities": "Other possibilities",
+  "other_possibilities_hint": "Recognition gets the species right on the first try in about 3 out of 4 photos. If the animal doesn't match the result above, check these:",
+  "species_not_registered": "No entry registered yet",
+  "no_snake_tip_body": "Frame the body, not just the head. Identification relies on the body pattern."
 }
