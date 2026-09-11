@@ -3,6 +3,8 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../models/snake_model.dart';
+import '../utils/snake_marker.dart';
 import 'screens.dart';
 
 class HomePage extends StatefulWidget {
@@ -139,6 +141,41 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // 📄 DO MAPA PARA A FICHA
+  // O avistamento no mapa já traz a linha inteira da espécie, porque a
+  // consulta faz join com `snakes(*)`. Então dá para abrir a ficha completa
+  // sem nenhuma ida extra ao banco.
+  //
+  // A confiança vai como 0, do mesmo jeito que no histórico: o número da
+  // identificação pertence a quem tirou a foto, e mostrá-lo para outra
+  // pessoa daria a entender que é uma medida daquele avistamento para ela.
+  void abrirFicha(
+      Map<String, dynamic> snake,
+      Map<String, dynamic> registro,
+      ) {
+
+    final SnakeModel modelo;
+
+    try {
+      modelo = SnakeModel.fromMap(snake);
+    } catch (e) {
+      debugPrint("abrirFicha: linha de espécie inválida: $e");
+      return;
+    }
+
+    Navigator.push(
+      context,
+      AppPageRoute(
+        builder: (_) => SnakeInformationScreen(
+          snake: modelo,
+          confidence: 0,
+          imageUrl: (registro['image_url'] ?? '').toString(),
+        ),
+        transition: AppTransition.slide,
+      ),
+    );
+  }
+
   Future<void> loadSnakeMarkers() async {
 
     try {
@@ -179,6 +216,29 @@ class _HomePageState extends State<HomePage> {
 
         final snake = item['snakes'];
 
+        if (snake == null) continue;
+
+        final bool poisonous = snake['poisonous'] == true;
+
+        final String imageName =
+            (snake['image_name'] ?? '').toString();
+
+        final String fotoEspecie = imageName.isEmpty
+            ? ''
+            : Supabase.instance.client.storage
+                .from('snake-species')
+                .getPublicUrl(imageName);
+
+        // 🐍 MARCADOR COM A CARA DA ESPÉCIE
+        // Substitui o pino vermelho genérico. A borda colorida separa
+        // peçonhenta de não peçonhenta à distância, e a foto deixa a espécie
+        // reconhecível sem precisar tocar em nada.
+        final icone = await SnakeMarker.build(
+          cacheKey: snake['specie']?.toString() ?? 'desconhecida',
+          imageUrl: fotoEspecie,
+          poisonous: poisonous,
+        );
+
         loadedMarkers.add(
 
           Marker(
@@ -199,21 +259,22 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
 
-            icon:
-            BitmapDescriptor.defaultMarkerWithHue(
-              BitmapDescriptor.hueRed,
-            ),
+            icon: icone,
 
             infoWindow: InfoWindow(
 
               title:
               snake['specie'],
 
-              snippet:
-              snake['poisonous'] == true
+              // A cor sozinha não basta: parte das pessoas não distingue
+              // vermelho de verde, então o texto sempre repete o risco. O
+              // "toque para ver" ensina que a janela abre a ficha — sem
+              // isso ninguém descobre.
+              snippet: poisonous
+                  ? "${"poisonous_yes".tr()} · ${"tap_to_open".tr()}"
+                  : "${"poisonous_no".tr()} · ${"tap_to_open".tr()}",
 
-                  ? "Venenosa"
-                  : "Não venenosa",
+              onTap: () => abrirFicha(snake, item),
             ),
           ),
         );

@@ -100,5 +100,8 @@
   "other_possibilities": "Other possibilities",
   "other_possibilities_hint": "Recognition gets the species right on the first try in about 3 out of 4 photos. If the animal doesn't match the result above, check these:",
   "species_not_registered": "No entry registered yet",
-  "no_snake_tip_body": "Frame the body, not just the head. Identification relies on the body pattern."
+  "no_snake_tip_body": "Frame the body, not just the head. Identification relies on the body pattern.",
+  "poisonous_yes": "Venomous",
+  "poisonous_no": "Not venomous",
+  "tap_to_open": "tap to open"
 }

@@ -119,5 +119,8 @@
   "other_possibilities": "Outras possibilidades",
   "other_possibilities_hint": "O reconhecimento acerta a espécie na primeira posição em cerca de 3 de cada 4 fotos. Se o animal não corresponde ao resultado acima, veja se é uma destas:",
   "species_not_registered": "Ainda sem ficha cadastrada",
-  "no_snake_tip_body": "Enquadre o corpo, e não só a cabeça. A identificação depende do padrão do corpo."
+  "no_snake_tip_body": "Enquadre o corpo, e não só a cabeça. A identificação depende do padrão do corpo.",
+  "poisonous_yes": "Peçonhenta",
+  "poisonous_no": "Não peçonhenta",
+  "tap_to_open": "toque para ver a ficha"
 }
