@@ -58,6 +58,18 @@ class YoloService {
   // usa. Troque lá, num lugar só.
   static const String baseUrl = ApiConfig.baseUrl;
 
+  // ⏱️ TEMPO LIMITE
+  //
+  // Sem isto a chamada esperava indefinidamente. Se o servidor não responde,
+  // o app fica girando para sempre e o usuário não tem como saber se está
+  // lento ou quebrado — foi exatamente o que aconteceu quando o endereço do
+  // servidor estava errado no APK.
+  //
+  // 45 segundos cobre a pior hipótese real: a primeira chamada do dia, com o
+  // Lambda frio carregando os dois modelos, mediu cerca de 7 segundos. A
+  // folga acomoda 5G ruim em campo, que é onde o app vai ser usado.
+  static const Duration _timeout = Duration(seconds: 45);
+
   Future<DetectionResult?> detectSnake(File imageFile) async {
 
     try {
@@ -73,11 +85,11 @@ class YoloService {
         ),
       );
 
-      final streamedResponse = await request.send();
+      final streamedResponse = await request.send().timeout(_timeout);
 
-      final response = await http.Response.fromStream(
-        streamedResponse,
-      );
+      final response = await http.Response
+          .fromStream(streamedResponse)
+          .timeout(_timeout);
 
       if (response.statusCode != 200) {
         return null;

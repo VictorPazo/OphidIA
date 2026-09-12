@@ -13,6 +13,18 @@ class IAService {
   // usa. Troque lá, num lugar só.
   final String baseUrl = ApiConfig.baseUrl;
 
+  // ⏱️ TEMPO LIMITE
+  //
+  // Era de 5 minutos, herdado de quando o servidor rodava na máquina local em
+  // CPU. Ninguém encara uma tela de carregamento por cinco minutos: na prática
+  // o usuário conclui que travou e fecha o app, e o erro nunca chega a
+  // aparecer.
+  //
+  // 45 segundos é folgado para o caso real. A primeira identificação do dia,
+  // com o Lambda frio carregando os dois modelos, mediu 7 segundos; as
+  // seguintes, 3. A margem cobre 5G instável em campo.
+  static const Duration _timeout = Duration(seconds: 45);
+
   // Tipos de falha sinalizados :
   // - SocketException: sem conexão com o servidor (rede caiu, IP errado)
   // - TimeoutException: servidor não respondeu a tempo (sobrecarga, rede lenta)
@@ -31,9 +43,12 @@ class IAService {
 
     final response = await request
         .send()
-        .timeout(const Duration(minutes: 5));
+        .timeout(_timeout);
 
-    final responseBody = await response.stream.bytesToString();
+    // O limite cobre a leitura também: a resposta pode começar a chegar e
+    // travar no meio se a conexão cair, e sem isto a espera seria infinita.
+    final responseBody =
+        await response.stream.bytesToString().timeout(_timeout);
 
     if (response.statusCode == 200) {
       return jsonDecode(responseBody) as Map<String, dynamic>;
