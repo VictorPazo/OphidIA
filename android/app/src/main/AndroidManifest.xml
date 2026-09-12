@@ -16,8 +16,7 @@
 
     <application
         android:label="snakes_of_imt"
-        android:icon="@mipmap/ic_launcher"
-        android:usesCleartextTraffic="true">
+        android:icon="@mipmap/ic_launcher">
 
         <!-- 🔥 GOOGLE MAPS API -->
         <meta-data

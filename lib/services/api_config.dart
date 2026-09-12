@@ -29,5 +29,6 @@ class ApiConfig {
 
   const ApiConfig._();
 
-  static const String baseUrl = '';
+  static const String baseUrl =
+      'https://zyiihfeqpcvcidnolbymsji3hy0ijjfq.lambda-url.sa-east-1.on.aws';
 }

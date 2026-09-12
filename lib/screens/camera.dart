@@ -1082,10 +1082,21 @@ class _CameraPageState
   // 🖼️ GALERIA
   Future<void> pickFromGallery() async {
 
+    // 📉 REDUZ ANTES DE ENVIAR
+    //
+    // A galeria devolvia o arquivo original, que num celular atual passa
+    // tranquilamente de 6 MB — o limite de uma requisição no AWS Lambda. A
+    // foto da câmera não tem esse problema porque já sai em resolução média.
+    //
+    // Reduzir não custa precisão nenhuma: o classificador redimensiona tudo
+    // para 384 px antes de olhar, e o detector para 960. Mandar 4000 px de
+    // largura é banda jogada fora, e o upload fica mais lento para o usuário.
     final XFile? image =
 
     await _picker.pickImage(
       source: ImageSource.gallery,
+      maxWidth: 1600,
+      imageQuality: 85,
     );
 
     if (image != null) {
