@@ -2,13 +2,14 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
 import '../models/snake_model.dart';
 import '../services/snake_info.dart';
+import '../theme/app_page_route.dart';
 import '../theme/app_theme.dart';
 import '../theme/animated_entrance.dart';
-import '../screens/screens.dart';
 import '../utils/dentition_helper.dart';
+import 'history.dart';
+import 'home.dart';
 
 class SnakeInformationScreen
     extends StatefulWidget {
@@ -22,11 +23,9 @@ class SnakeInformationScreen
 
   /// Ranking completo devolvido pelo `/predict`, da espécie mais provável
   /// para a menos — cada item com `specie`, `confidence` e `snake_id`.
-  ///
   /// O modelo acerta 76,8% na primeira posição, mas 90,0% considerando as
   /// três primeiras. Exibir as alternativas devolve ao usuário esses 13
   /// pontos que, mostrando só o topo, seriam simplesmente perdidos.
-  ///
   /// Vem vazio nas telas abertas pelo histórico, onde não há predição.
   final List<Map<String, dynamic>> ranking;
 

@@ -1,8 +1,11 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/material.dart';
+import 'package:snakes_of_imt/screens/register.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-import 'screens.dart';
-import '../services/services.dart';
+import '../services/auth_service.dart';
+import '../theme/app_page_route.dart';
+import '../theme/app_theme.dart';
+import 'home.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});

@@ -1,12 +1,6 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:path_provider/path_provider.dart';
-import 'package:image/image.dart' as img;
-import '../models/snake_model.dart';
-import '../models/upload_result.dart';
-import '../services/api_exceptions.dart';
-import '../services/upload_service.dart';
-import '../services/yolo_service.dart';
+import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -14,9 +8,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-import '../services/services.dart';
-import '../screens/screens.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:image/image.dart' as img;
+import 'package:snakes_of_imt/screens/snake_information.dart';
+import '../models/snake_model.dart';
+import '../models/upload_result.dart';
+import '../services/api_exceptions.dart';
+import '../services/ia_service.dart';
+import '../services/snake_info.dart';
+import '../services/upload_service.dart';
+import '../services/yolo_service.dart';
+import '../theme/app_page_route.dart';
+import '../theme/app_theme.dart';
 
 class CameraPage extends StatefulWidget {
   const CameraPage({super.key});
@@ -41,14 +44,11 @@ class _CameraPageState
   final ImagePicker _picker =
   ImagePicker();
 
-  final UploadService uploadService =
-  UploadService();
+  final UploadService uploadService = UploadService();
 
-  final IAService iaService =
-  IAService();
+  final IAService iaService = IAService();
 
-  final YoloService yoloService =
-  YoloService();
+  final YoloService yoloService = YoloService();
 
   final SnakeInformationService
   snakeInformationService =

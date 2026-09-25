@@ -31,8 +31,7 @@ class SnakeInformationService {
   }
 
   /// Busca pelo nome científico, do jeito que o modelo devolve
-  /// ('Corallus hortulana').
-  ///
+  /// ('Corallus hortulana')
   /// É por aqui que a tela de câmera resolve a espécie identificada. O
   /// `snake_id` do servidor de inferência cobre só as espécies mapeadas à
   /// mão no `SPECIE_TO_ID` de `lib/models/main.py`, enquanto o nome vem

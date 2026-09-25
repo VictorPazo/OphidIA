@@ -1,8 +1,9 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:snakes_of_imt/screens/login.dart';
+import 'package:snakes_of_imt/theme/app_theme.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:easy_localization/easy_localization.dart';
-
-import 'screens/screens.dart';
 
 void main() async {
 
