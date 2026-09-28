@@ -72,5 +72,7 @@
     <string>Este app precisa de acesso à câmera para tirar fotos.</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>Este app precisa de acesso às fotos para anexar imagens.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Este app pode usar o microfone ao acessar a câmera.</string>
 </dict>
 </plist>
