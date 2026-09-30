@@ -122,5 +122,19 @@
   "no_snake_tip_body": "Enquadre o corpo, e não só a cabeça. A identificação depende do padrão do corpo.",
   "poisonous_yes": "Peçonhenta",
   "poisonous_no": "Não peçonhenta",
-  "tap_to_open": "toque para ver a ficha"
+  "tap_to_open": "toque para ver a ficha",
+  "risk": "Risco",
+  "risk_low": "Baixo",
+  "risk_medium": "Médio",
+  "risk_high": "Alto",
+  "disclaimer_short": "A identificação por IA pode errar. Em caso de acidente, procure atendimento médico imediatamente.",
+  "disclaimer_short_low": "Identificação por IA. Não substitui avaliação profissional.",
+  "see_more": "Ver mais",
+  "see_less": "Ver menos",
+  "call_samu": "Ligar para o SAMU (192)",
+  "call_error": "Não foi possível abrir o discador.",
+  "consent_title": "Antes de continuar",
+  "consent_text": "Este aplicativo usa inteligência artificial para sugerir a espécie de uma serpente e pode errar. Ele é uma ferramenta educativa e não substitui a avaliação de um profissional. Em caso de acidente, procure atendimento médico imediatamente.",
+  "consent_checkbox": "Li e entendi que a identificação pode estar incorreta.",
+  "consent_button": "Entendi"
 }

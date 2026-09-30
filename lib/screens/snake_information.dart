@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/snake_model.dart';
 import '../services/snake_info.dart';
 import '../theme/app_page_route.dart';
@@ -10,6 +11,30 @@ import '../theme/animated_entrance.dart';
 import '../utils/dentition_helper.dart';
 import 'history.dart';
 import 'home.dart';
+
+enum SnakeRisk { low, medium, high }
+
+String _normalize(String s) {
+  const from = 'áàâãäéèêëíìîïóòôõöúùûüç';
+  const to   = 'aaaaaeeeeiiiiooooouuuuc';
+  var out = s.toLowerCase().trim();
+  for (var i = 0; i < from.length; i++) {
+    out = out.replaceAll(from[i], to[i]);
+  }
+  return out;
+}
+
+bool _isAglyphous(String d) => d.contains('aglif') || d.contains('aglyph');
+bool _isOpisthoglyphous(String d) => d.contains('opistoglif') || d.contains('opisthoglyph');
+bool _isSolenoOrProtero(String d) => d.contains('solenoglif') || d.contains('proteroglif') || d.contains('solenoglyph') || d.contains('proteroglyph');
+
+SnakeRisk? riskFromDentition(String dentition) {
+  final d = _normalize(dentition);
+  if (_isAglyphous(d)) return SnakeRisk.low;
+  if (_isOpisthoglyphous(d)) return SnakeRisk.medium;
+  if (_isSolenoOrProtero(d)) return SnakeRisk.high;
+  return null;
+}
 
 class SnakeInformationScreen
     extends StatefulWidget {
@@ -50,12 +75,103 @@ class _SnakeInformationScreenState
 
   bool showConfidence = true;
   bool isSaving = false;
+  bool disclaimerExpanded = false;
   bool get isNewIdentification => widget.heroTag != null;
+  static const int _fullDisclaimerViews = 3;
 
   @override
   void initState() {
     super.initState();
     loadShowConfidenceSetting();
+    loadDisclaimerState();
+  }
+
+  Future<void> loadDisclaimerState() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    var views = prefs.getInt('disclaimerViews') ?? 0;
+
+    // Só identificações novas contam: histórico e alternativas não.
+    if (isNewIdentification) {
+      views++;
+      await prefs.setInt('disclaimerViews', views);
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      disclaimerExpanded = isNewIdentification && views <= _fullDisclaimerViews;
+    });
+
+    final accepted = prefs.getBool('disclaimerAccepted') ?? false;
+    if (isNewIdentification && !accepted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) showConsentDialog(prefs);
+      });
+    }
+  }
+
+  Future<void> showConsentDialog(SharedPreferences prefs) async {
+    bool checked = false;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return PopScope(
+          canPop: false,
+          child: StatefulBuilder(
+            builder: (context, setDialogState) {
+              return AlertDialog(
+                title: Text("consent_title".tr()),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("consent_text".tr()),
+                    const SizedBox(height: AppSpacing.md),
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      value: checked,
+                      onChanged: (v) =>
+                          setDialogState(() => checked = v ?? false),
+                      title: Text(
+                        "consent_checkbox".tr(),
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    ),
+                  ],
+                ),
+                actions: [
+                  ElevatedButton(
+                    onPressed: checked
+                        ? () async {
+                      await prefs.setBool('disclaimerAccepted', true);
+                      if (dialogContext.mounted) {
+                        Navigator.pop(dialogContext);
+                      }
+                    }
+                        : null,
+                    child: Text("consent_button".tr()),
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> callSamu() async {
+    final uri = Uri(scheme: 'tel', path: '192');
+    final ok = await launchUrl(uri);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("call_error".tr())),
+      );
+    }
   }
 
   Future<void> loadShowConfidenceSetting() async {
@@ -136,6 +252,14 @@ class _SnakeInformationScreenState
 
     final bool hasConfidence = widget.confidence > 0;
 
+    final dentition = _normalize(widget.snake.dentition_type.toString());
+    final isAglyphous = _isAglyphous(dentition);
+    final isOpisthoglyphous = _isOpisthoglyphous(dentition);
+    final risk = riskFromDentition(widget.snake.dentition_type.toString());
+    final bool isLowRisk = risk == SnakeRisk.low;
+
+    final showVenomType = !isAglyphous;
+    final showAntivenom = !isAglyphous && !isOpisthoglyphous;
     Widget snakeImage = Image.network(
       image,
       height: 250,
@@ -188,6 +312,14 @@ class _SnakeInformationScreenState
               ),
             ),
 
+            if (risk != null) ...[
+              const SizedBox(height: AppSpacing.md),
+              FadeSlideIn(
+                delay: const Duration(milliseconds: 40),
+                child: Center(child: buildRiskBadge(risk)),
+              ),
+            ],
+
             if (showConfidence && hasConfidence) ...[
               const SizedBox(height: AppSpacing.md),
               FadeSlideIn(
@@ -196,14 +328,22 @@ class _SnakeInformationScreenState
               ),
             ],
 
-            const SizedBox(height: AppSpacing.lg),
+            if (!isLowRisk) ...[
+              const SizedBox(height: AppSpacing.lg),
+              FadeSlideIn(
+                delay: const Duration(milliseconds: 140),
+                child: buildMedicalDisclaimer(risk),
+              ),
+            ],
 
-            FadeSlideIn(
-              delay: const Duration(milliseconds: 140),
-              child: buildMedicalDisclaimer(),
-            ),
-
             const SizedBox(height: AppSpacing.lg),
+            if (isLowRisk) ...[
+              const SizedBox(height: AppSpacing.md),
+              FadeSlideIn(
+                delay: const Duration(milliseconds: 220),
+                child: buildLowRiskDisclaimer(),
+              ),
+            ],
 
             FadeSlideIn(
               delay: const Duration(milliseconds: 200),
@@ -228,11 +368,13 @@ class _SnakeInformationScreenState
                       "dentition_type".tr(),
                       widget.snake.dentition_type.toString(),
                     ),
-                    infoRow("venom_type".tr(), widget.snake.venomType),
-                    infoRow(
-                      "antivenom".tr(),
-                      widget.snake.effectiveAntivenom ?? "not_informed".tr(),
-                    ),
+                    if (showVenomType)
+                      infoRow("venom_type".tr(), widget.snake.venomType),
+                    if (showAntivenom)
+                      infoRow(
+                        "antivenom".tr(),
+                        widget.snake.effectiveAntivenom ?? "not_informed".tr(),
+                      ),
                     const SizedBox(height: AppSpacing.lg),
                     Text(
                       "description".tr(),
@@ -307,6 +449,57 @@ class _SnakeInformationScreenState
     );
   }
 
+  Widget buildRiskBadge(SnakeRisk risk) {
+    final Color color;
+    final String label;
+    final IconData icon;
+
+    switch (risk) {
+      case SnakeRisk.low:
+        color = Colors.green.shade700;
+        label = "risk_low".tr();
+        icon = Icons.check_circle_outline;
+        break;
+      case SnakeRisk.medium:
+        color = Colors.orange.shade800;
+        label = "risk_medium".tr();
+        icon = Icons.warning_amber_rounded;
+        break;
+      case SnakeRisk.high:
+        color = Colors.red.shade700;
+        label = "risk_high".tr();
+        icon = Icons.dangerous_outlined;
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color, width: 1.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: AppSpacing.sm),
+          Text(
+            "${"risk".tr()}: $label",
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w700,
+              fontSize: 15,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget buildConfidenceBadge() {
     return Container(
       padding: const EdgeInsets.symmetric(
@@ -341,11 +534,9 @@ class _SnakeInformationScreenState
   }
 
   // 🥈 OUTRAS POSSIBILIDADES
-  //
   // Mostra as posições 2 e 3 do ranking. São tocáveis quando a espécie já
   // existe na tabela `snakes`: quem reconhece o animal na segunda opção
   // consegue abrir a ficha dela, em vez de ficar preso na primeira.
-  //
   // Some inteiro no histórico (ranking vazio) e quando o usuário desliga a
   // confiança nas Configurações — são o mesmo dado, e seria incoerente
   // esconder a porcentagem principal e manter as alternativas.
@@ -507,42 +698,160 @@ class _SnakeInformationScreenState
     );
   }
 
-  Widget buildMedicalDisclaimer() {
+  // ⚠️ AVISO PARA RISCO MÉDIO / ALTO / DESCONHECIDO
+// A linha curta fica sempre visível e não tem botão de fechar. O
+// "Ver mais" só revela o texto completo e a ação de ligar para o SAMU.
+  Widget buildMedicalDisclaimer(SnakeRisk? risk) {
+    final effective = risk ?? SnakeRisk.high;
+    final MaterialColor base =
+    effective == SnakeRisk.medium ? Colors.orange : Colors.red;
+
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: Colors.amber.shade50,
+        color: base.shade50,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.amber.shade700),
+        border: Border.all(color: base.shade700),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.warning_amber_rounded, color: Colors.amber.shade800),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "medical_disclaimer_title".tr(),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.warning_amber_rounded, color: base.shade800),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  "disclaimer_short".tr(),
                   style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.amber.shade900,
+                    color: base.shade900,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
                   ),
                 ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  "medical_disclaimer_text".tr(),
-                  style: TextStyle(
-                    color: Colors.amber.shade900,
-                    fontSize: 13,
+              ),
+            ],
+          ),
+
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            alignment: Alignment.topCenter,
+            child: disclaimerExpanded
+                ? Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.sm),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "medical_disclaimer_title".tr(),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: base.shade900,
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    "medical_disclaimer_text".tr(),
+                    style: TextStyle(color: base.shade900, fontSize: 13),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: base.shade700,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: callSamu,
+                      icon: const Icon(Icons.phone),
+                      label: Text("call_samu".tr()),
+                    ),
+                  ),
+                ],
+              ),
+            )
+                : const SizedBox(width: double.infinity),
+          ),
+
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: base.shade900,
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(0, 32),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: () =>
+                  setState(() => disclaimerExpanded = !disclaimerExpanded),
+              child: Text(
+                disclaimerExpanded ? "see_less".tr() : "see_more".tr(),
+              ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+// ℹ️ AVISO DISCRETO PARA RISCO BAIXO
+// Uma linha no fim da ficha. Não polui, mas continua lá caso o modelo
+// tenha errado a espécie.
+  Widget buildLowRiskDisclaimer() {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => setState(() => disclaimerExpanded = !disclaimerExpanded),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.sm,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.info_outline, size: 16, color: Colors.black45),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    "disclaimer_short_low".tr(),
+                    style: const TextStyle(fontSize: 12.5, color: Colors.black54),
+                  ),
+                ),
+                Icon(
+                  disclaimerExpanded ? Icons.expand_less : Icons.expand_more,
+                  size: 18,
+                  color: Colors.black45,
+                ),
+              ],
+            ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeInOut,
+              alignment: Alignment.topCenter,
+              child: disclaimerExpanded
+                  ? Padding(
+                padding: const EdgeInsets.only(
+                  top: AppSpacing.xs,
+                  left: 24,
+                ),
+                child: Text(
+                  "medical_disclaimer_text".tr(),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    height: 1.4,
+                    color: Colors.black54,
+                  ),
+                ),
+              )
+                  : const SizedBox(width: double.infinity),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -103,5 +103,19 @@
   "no_snake_tip_body": "Frame the body, not just the head. Identification relies on the body pattern.",
   "poisonous_yes": "Venomous",
   "poisonous_no": "Not venomous",
-  "tap_to_open": "tap to open"
+  "tap_to_open": "tap to open",
+  "risk": "Risk",
+  "risk_low": "Low",
+  "risk_medium": "Medium",
+  "risk_high": "High",
+  "disclaimer_short": "AI identification can be wrong. In case of a bite, seek medical care immediately.",
+  "disclaimer_short_low": "AI identification. Does not replace professional assessment.",
+  "see_more": "See more",
+  "see_less": "See less",
+  "call_samu": "Call emergency services (192)",
+  "call_error": "Could not open the dialer.",
+  "consent_title": "Before you continue",
+  "consent_text": "This app uses artificial intelligence to suggest a snake's species and can be wrong. It is an educational tool and does not replace professional assessment. In case of a bite, seek medical care immediately.",
+  "consent_checkbox": "I understand the identification may be incorrect.",
+  "consent_button": "Got it"
 }
