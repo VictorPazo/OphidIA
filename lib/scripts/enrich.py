@@ -3,12 +3,19 @@ Aplica regras conhecidas por FAMÍLIA para preencher automaticamente
 'dentition_type' e 'poisonous' (padrão bem estabelecido na herpetologia).
 
 Campos que EXIGEM revisão manual/curadoria especializada antes de publicar:
-  - description
-  - venom_type
-  - effective_antivenom
+  - description / description_en
+  - venom_type / venom_type_en
+  - effective_antivenom / effective_antivenom_en
+  - popular_name_pt / popular_name_en
 
 Esses ficam marcados com "REVISAR" para você (ou uma fonte como o Instituto
 Butantan / SBH) preencher com precisão, especialmente nas espécies peçonhentas.
+
+Os campos "_en" (e popular_name_pt/en) NUNCA são preenchidos por tradução
+automática — mesmo os conteúdos clínicos (venom_type/effective_antivenom)
+em português exigem curadoria especializada, então as versões em inglês
+exigem o mesmo cuidado. Ver lib/scripts/migrations/0001_add_translation_columns.sql
+para o backfill das espécies já cadastradas no banco.
 """
 
 import json
@@ -38,10 +45,15 @@ def enrich_species(species_list):
             "family": s["family"],
             "genus": s["genus"],
             "specie": s["specie"],
+            "popular_name_pt": "REVISAR",
+            "popular_name_en": "REVISAR",
             "description": "REVISAR - escrever descrição (porte, habitat, comportamento)",
+            "description_en": "REVISAR - write description in English (size, habitat, behavior)",
             "poisonous": rule["poisonous"],
             "venom_type": "REVISAR" if rule["poisonous"] else "Não peçonhenta / sem relevância clínica",
+            "venom_type_en": "REVISAR",
             "effective_antivenom": "REVISAR" if rule["poisonous"] else None,
+            "effective_antivenom_en": "REVISAR" if rule["poisonous"] else None,
             "image_name": f"{s['genus'].lower()}_{s['specie'].split(' ')[-1].lower()}.jpg",
             "dentition_type": rule["dentition_type"],
         }

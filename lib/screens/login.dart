@@ -88,6 +88,14 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+
+    // Chaves usadas como "chave".tr() (sem passar `context:`) leem um
+    // singleton global do easy_localization, não um InheritedWidget — essa
+    // tela só reconstrói sozinha quando o idioma muda se também depender de
+    // context.locale, senão o texto só atualiza na próxima vez que a tela
+    // for recriada do zero (ex: ao sair e voltar pra ela).
+    context.locale;
+
     return Scaffold(
       body: LayoutBuilder(
         builder: (context, constraints) {

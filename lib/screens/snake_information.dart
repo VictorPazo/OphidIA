@@ -252,6 +252,12 @@ class _SnakeInformationScreenState
 
     final bool hasConfidence = widget.confidence > 0;
 
+    final locale = context.locale.languageCode;
+    final popularName = widget.snake.localizedPopularName(locale);
+    final dentitionLabel = dentitionTranslationKey(
+      widget.snake.dentition_type.toString(),
+    ).tr();
+
     final dentition = _normalize(widget.snake.dentition_type.toString());
     final isAglyphous = _isAglyphous(dentition);
     final isOpisthoglyphous = _isOpisthoglyphous(dentition);
@@ -305,10 +311,26 @@ class _SnakeInformationScreenState
             const SizedBox(height: AppSpacing.lg),
 
             FadeSlideIn(
-              child: Text(
-                widget.snake.specie,
-                textAlign: TextAlign.center,
-                style: AppTextStyles.screenTitle,
+              child: Column(
+                children: [
+                  Text(
+                    popularName ?? widget.snake.specie,
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.screenTitle,
+                  ),
+                  if (popularName != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      widget.snake.specie,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontStyle: FontStyle.italic,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
 
@@ -367,13 +389,18 @@ class _SnakeInformationScreenState
                       widget.snake.poisonous ? "yes".tr() : "no".tr(),
                       "dentition_type".tr(),
                       widget.snake.dentition_type.toString(),
+                      dentitionLabel,
                     ),
                     if (showVenomType)
-                      infoRow("venom_type".tr(), widget.snake.venomType),
+                      infoRow(
+                        "venom_type".tr(),
+                        widget.snake.localizedVenomType(locale),
+                      ),
                     if (showAntivenom)
                       infoRow(
                         "antivenom".tr(),
-                        widget.snake.effectiveAntivenom ?? "not_informed".tr(),
+                        widget.snake.localizedEffectiveAntivenom(locale) ??
+                            "not_informed".tr(),
                       ),
                     const SizedBox(height: AppSpacing.lg),
                     Text(
@@ -385,7 +412,8 @@ class _SnakeInformationScreenState
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     Text(
-                      widget.snake.description ?? "no_description".tr(),
+                      widget.snake.localizedDescription(locale) ??
+                          "no_description".tr(),
                       style: const TextStyle(fontSize: 16),
                     ),
                   ],
@@ -965,10 +993,11 @@ class _SnakeInformationScreenState
       String poisonousLabel,
       String poisonous,
       String title,
-      String value,
+      String rawDentition,
+      String displayLabel,
       ) {
 
-    final imageAsset = dentitionImageAsset(value);
+    final imageAsset = dentitionImageAsset(rawDentition);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.md),
@@ -995,7 +1024,7 @@ class _SnakeInformationScreenState
                 ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
-                  child: taxonomyCell(title, value, italic: false),
+                  child: taxonomyCell(title, displayLabel, italic: false),
                 ),
               ],
             ),
@@ -1009,7 +1038,7 @@ class _SnakeInformationScreenState
           if (imageAsset != null) ...[
             const SizedBox(height: AppSpacing.sm),
             GestureDetector(
-              onTap: () => openDentitionViewer(imageAsset, value),
+              onTap: () => openDentitionViewer(imageAsset, displayLabel),
               child: Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(AppSpacing.sm),

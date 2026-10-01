@@ -100,6 +100,79 @@ class _ConfigurationPageState
     );
   }
 
+  Future<void> showLanguageDialog() async {
+
+    final selected = await showDialog<Locale>(
+
+      context: context,
+
+      builder: (dialogContext) {
+
+        return AlertDialog(
+
+          title: Text(
+            "language".tr(),
+          ),
+
+          content: Column(
+
+            mainAxisSize: MainAxisSize.min,
+
+            children: [
+
+              RadioListTile<Locale>(
+
+                value: const Locale('pt', 'BR'),
+
+                groupValue: context.locale,
+
+                title: const Text('Português'),
+
+                onChanged: (value) {
+                  Navigator.pop(dialogContext, value);
+                },
+              ),
+
+              RadioListTile<Locale>(
+
+                value: const Locale('en', 'US'),
+
+                groupValue: context.locale,
+
+                title: const Text('English'),
+
+                onChanged: (value) {
+                  Navigator.pop(dialogContext, value);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (selected == null || selected == context.locale) return;
+
+    await context.setLocale(selected);
+
+    if (!mounted) return;
+
+    setState(() {});
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          selected.languageCode == 'pt'
+              ? "language_changed_pt".tr()
+              : "language_changed_en".tr(),
+        ),
+
+        duration:
+        const Duration(seconds: 2),
+      ),
+    );
+  }
+
   Future<void> confirmLogout() async {
 
     final bool? confirmed =
@@ -291,6 +364,26 @@ class _ConfigurationPageState
                     ),
 
                     onTap: resetTutorial,
+                  ),
+
+                  const Divider(),
+
+                  ListTile(
+
+                    leading:
+                    const Icon(Icons.language),
+
+                    title: Text(
+                      "language".tr(),
+                    ),
+
+                    subtitle: Text(
+                      context.locale.languageCode == 'pt'
+                          ? 'Português'
+                          : 'English',
+                    ),
+
+                    onTap: showLanguageDialog,
                   ),
                 ],
               ),

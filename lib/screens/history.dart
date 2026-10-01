@@ -126,19 +126,40 @@ class _HistoryPageState
   }
 
   // 🗑️ DELETAR
+  // `snake_historic` é a mesma tabela que o mapa comunitário lê em
+  // home.dart (sem filtro de usuário) — apagar aqui já é a exclusão real
+  // do avistamento pra todo mundo, não uma cópia local. O `.select()`
+  // depois do `.delete()` é o que permite detectar quando a RLS aceita o
+  // delete mas não remove nenhuma linha (não é dono do registro, por
+  // exemplo): sem checar isso, o Supabase não lança erro nenhum, e o item
+  // pareceria excluído na tela mesmo continuando no banco e no mapa.
   Future<void> deleteHistoric(
       int id,
       ) async {
 
     try {
 
-      await supabase
+      final deletedRows = await supabase
 
           .from('snake_historic')
 
           .delete()
 
-          .eq('id', id);
+          .eq('id', id)
+
+          .select();
+
+      if (deletedRows.isEmpty) {
+        throw Exception(
+          'Nenhuma linha removida (RLS ou id inexistente).',
+        );
+      }
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("history_deleted".tr())),
+      );
 
       loadHistoric();
 
@@ -147,6 +168,17 @@ class _HistoryPageState
       debugPrint(
         "Erro delete: $e",
       );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("delete_history_error".tr())),
+      );
+
+      // O Dismissible já tirou o item da lista na tela de forma otimista;
+      // recarrega pra ele voltar a aparecer, já que na prática não foi
+      // excluído.
+      loadHistoric();
     }
   }
 
@@ -265,6 +297,13 @@ class _HistoryPageState
 
   @override
   Widget build(BuildContext context) {
+
+    // Chaves usadas como "chave".tr() (sem passar `context:`) leem um
+    // singleton global do easy_localization, não um InheritedWidget — essa
+    // tela só reconstrói sozinha quando o idioma muda se também depender de
+    // context.locale, senão o texto só atualiza na próxima vez que a tela
+    // for recriada do zero (ex: ao sair e voltar pra ela).
+    context.locale;
 
     return Scaffold(
 

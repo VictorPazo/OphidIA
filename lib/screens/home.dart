@@ -9,6 +9,7 @@ import '../theme/app_page_route.dart';
 import '../theme/app_theme.dart';
 import '../theme/skeleton.dart';
 import '../utils/snake_marker.dart';
+import '../utils/sighting_time.dart';
 import 'camera.dart';
 import 'configuration.dart';
 import 'history.dart';
@@ -245,6 +246,20 @@ class _HomePageState extends State<HomePage> {
           poisonous: poisonous,
         );
 
+        // ⏱️ "VISTO HÁ X" SÓ NO TOQUE
+        // Fica de fora do pino (que já carrega foto + borda de cor) e só
+        // aparece dentro do InfoWindow, junto com as outras informações —
+        // o mapa continua limpo, sem rótulo permanente sobre o marcador.
+        String? sightedAgo;
+        final dataPhoto = item['data_photo']?.toString();
+        if (dataPhoto != null) {
+          try {
+            sightedAgo = sightingTimeAgoKey(DateTime.parse(dataPhoto)).tr();
+          } catch (e) {
+            debugPrint("Erro ao calcular tempo do avistamento: $e");
+          }
+        }
+
         loadedMarkers.add(
 
           Marker(
@@ -276,9 +291,11 @@ class _HomePageState extends State<HomePage> {
               // vermelho de verde, então o texto sempre repete o risco. O
               // "toque para ver" ensina que a janela abre a ficha — sem
               // isso ninguém descobre.
-              snippet: poisonous
-                  ? "${"poisonous_yes".tr()} · ${"tap_to_open".tr()}"
-                  : "${"poisonous_no".tr()} · ${"tap_to_open".tr()}",
+              snippet: [
+                poisonous ? "poisonous_yes".tr() : "poisonous_no".tr(),
+                ?sightedAgo,
+                "tap_to_open".tr(),
+              ].join(" · "),
 
               onTap: () => abrirFicha(snake, item),
             ),
@@ -371,6 +388,13 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+
+    // Chaves usadas como "chave".tr() (sem passar `context:`) leem um
+    // singleton global do easy_localization, não um InheritedWidget — essa
+    // tela só reconstrói sozinha quando o idioma muda se também depender de
+    // context.locale, senão o texto só atualiza na próxima vez que a tela
+    // for recriada do zero (ex: ao sair e voltar pra ela).
+    context.locale;
 
     return Scaffold(
 
