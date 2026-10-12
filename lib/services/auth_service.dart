@@ -1,16 +1,15 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../utils/password_rules.dart';
+
 class AuthService {
 
   final supabase = Supabase.instance.client;
 
-  bool senhaForte(String senha) {
-    final regex = RegExp(
-      r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$',
-    );
-
-    return regex.hasMatch(senha);
-  }
+  // A regra vive em PasswordRules para o formulário de cadastro mostrar ao
+  // vivo exatamente o que este serviço vai cobrar. Antes eram duas regras
+  // diferentes, e a tela aceitava senha que o serviço recusava.
+  bool senhaForte(String senha) => PasswordRules.isStrong(senha);
 
   Future<String?> cadastrarUsuario({
     required String nome,
