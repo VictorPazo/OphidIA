@@ -7,12 +7,17 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/snake_model.dart';
 import '../theme/app_page_route.dart';
 import '../theme/app_theme.dart';
+import '../theme/map_overlays.dart';
 import '../theme/skeleton.dart';
+import '../utils/sighting_marker.dart';
 import '../utils/snake_marker.dart';
+import '../utils/snake_risk.dart';
 import '../utils/sighting_time.dart';
 import 'camera.dart';
 import 'configuration.dart';
 import 'history.dart';
+import 'map_fullscreen.dart';
+import 'species_catalog.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -30,9 +35,44 @@ class _HomePageState extends State<HomePage> {
   LatLng currentPosition =
   const LatLng(-23.55052, -46.633308);
 
-  Set<Marker> markers = {};
+  /// Avistamentos com o risco preservado ao lado do pino, para a legenda
+  /// poder filtrar sem remontar os ícones.
+  List<SightingMarker> avistamentos = [];
+
+  /// Nível isolado pela legenda, ou null quando o mapa mostra todos.
+  SnakeRisk? riskFilter;
+
+  /// O que o mapa desenha: o marcador do usuário sempre, mais os
+  /// avistamentos que passam pelo filtro. O marcador do usuário fica fora da
+  /// lista justamente para nunca ser filtrado — ele não é um avistamento.
+  Set<Marker> get visibleMarkers => {
+
+        Marker(
+          markerId: const MarkerId("usuario"),
+          position: currentPosition,
+          infoWindow: InfoWindow(title: "you_are_here".tr()),
+        ),
+
+        for (final avistamento in avistamentos)
+          if (riskFilter == null || avistamento.risk == riskFilter)
+            avistamento.marker,
+      };
 
   bool loadingMap = true;
+
+  // 📍 RESUMO DE PROXIMIDADE
+  //
+  // O mapa responde "onde tem cobra"; estes números respondem "é perigoso
+  // aqui", que é a pergunta que a pessoa realmente tem ao abrir a tela.
+  //
+  // Os limites são escolhas de produto: 5 km é uma vizinhança a pé ou de carro
+  // curto, e 30 dias é recente o bastante para ainda dizer algo. Um avistamento
+  // de três anos atrás pesaria igual a um de ontem, e não deveria.
+  static const double _raioKm = 5;
+  static const int _janelaDias = 30;
+
+  int nearbyTotal = 0;
+  int nearbyHighRisk = 0;
 
   @override
   void initState() {
@@ -183,6 +223,32 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  void abrirMapaTelaCheia() {
+
+    Navigator.push(
+      context,
+      AppPageRoute(
+        builder: (_) => MapFullScreenPage(
+          avistamentos: avistamentos,
+          currentPosition: currentPosition,
+          nearbyTotal: nearbyTotal,
+          nearbyHighRisk: nearbyHighRisk,
+          raioKm: _raioKm,
+          janelaDias: _janelaDias,
+          riskFilter: riskFilter,
+          // O filtro escolhido na tela cheia continua valendo ao voltar:
+          // desfazer a escolha do usuário na transição seria perder trabalho
+          // que ele acabou de fazer.
+          onRiskFilterChanged: (risco) {
+            if (!mounted) return;
+            setState(() => riskFilter = risco);
+          },
+        ),
+        transition: AppTransition.fade,
+      ),
+    );
+  }
+
   Future<void> loadSnakeMarkers() async {
 
     try {
@@ -197,22 +263,13 @@ class _HomePageState extends State<HomePage> {
           snakes(*)
         ''');
 
-      Set<Marker> loadedMarkers = {};
+      // O marcador do usuário não entra aqui: ele é montado em
+      // `visibleMarkers`, porque não é um avistamento e nunca deve ser
+      // removido pelo filtro da legenda.
+      final List<SightingMarker> carregados = [];
 
-      loadedMarkers.add(
-
-        Marker(
-
-          markerId:
-          const MarkerId("usuario"),
-
-          position: currentPosition,
-
-          infoWindow: InfoWindow(
-            title: "Você está aqui",
-          ),
-        ),
-      );
+      int perto = 0;
+      int pertoAlto = 0;
 
       for (var item in response) {
 
@@ -226,6 +283,14 @@ class _HomePageState extends State<HomePage> {
         if (snake == null) continue;
 
         final bool poisonous = snake['poisonous'] == true;
+
+        // O nível vem da dentição, a mesma regra da ficha. Quando a dentição
+        // não é reconhecida (inclusive quando o campo está como "REVISAR" no
+        // banco), caímos no booleano de peçonhenta, que é a informação menos
+        // precisa mas sempre presente.
+        final SnakeRisk risk =
+            riskFromDentition(snake['dentition_type']?.toString() ?? '') ??
+                (poisonous ? SnakeRisk.high : SnakeRisk.low);
 
         final String imageName =
             (snake['image_name'] ?? '').toString();
@@ -243,7 +308,7 @@ class _HomePageState extends State<HomePage> {
         final icone = await SnakeMarker.build(
           cacheKey: snake['specie']?.toString() ?? 'desconhecida',
           imageUrl: fotoEspecie,
-          poisonous: poisonous,
+          risk: risk,
         );
 
         // ⏱️ "VISTO HÁ X" SÓ NO TOQUE
@@ -260,25 +325,49 @@ class _HomePageState extends State<HomePage> {
           }
         }
 
-        loadedMarkers.add(
+        final posicao = LatLng(
+          double.parse(item['latitude'].toString()),
+          double.parse(item['longitude'].toString()),
+        );
 
-          Marker(
+        // Conta para o resumo de proximidade. Feito aqui, no mesmo laço, para
+        // não percorrer a lista duas vezes nem consultar o banco de novo.
+        if (dataPhoto != null) {
+          try {
+            final idade = DateTime.now()
+                .difference(DateTime.parse(dataPhoto))
+                .inDays;
+
+            final metros = Geolocator.distanceBetween(
+              currentPosition.latitude,
+              currentPosition.longitude,
+              posicao.latitude,
+              posicao.longitude,
+            );
+
+            if (idade <= _janelaDias && metros <= _raioKm * 1000) {
+              perto++;
+              if (risk == SnakeRisk.high) pertoAlto++;
+            }
+          } catch (e) {
+            debugPrint("Erro ao contar avistamento próximo: $e");
+          }
+        }
+
+        carregados.add(
+
+          SightingMarker(
+
+            risk: risk,
+
+            marker: Marker(
 
             markerId:
             MarkerId(
               "snake_${item['id']}",
             ),
 
-            position: LatLng(
-
-              double.parse(
-                item['latitude'].toString(),
-              ),
-
-              double.parse(
-                item['longitude'].toString(),
-              ),
-            ),
+            position: posicao,
 
             icon: icone,
 
@@ -299,13 +388,16 @@ class _HomePageState extends State<HomePage> {
 
               onTap: () => abrirFicha(snake, item),
             ),
+            ),
           ),
         );
       }
 
       setState(() {
 
-        markers = loadedMarkers;
+        avistamentos = carregados;
+        nearbyTotal = perto;
+        nearbyHighRisk = pertoAlto;
       });
 
     } catch (e) {
@@ -444,35 +536,124 @@ class _HomePageState extends State<HomePage> {
 
                   ? const MapSkeleton()
 
+              // 🗺️ SOBREPOSIÇÕES
+              // O resumo fica no topo porque é a resposta; a legenda fica no
+              // rodapé porque é consulta, não informação principal. Ambas
+              // dentro do ClipRRect, para acompanharem os cantos do mapa.
                   : ClipRRect(
 
                 borderRadius:
                 BorderRadius.circular(20),
 
-                child: GoogleMap(
+                child: Stack(
 
-                  initialCameraPosition:
+                  children: [
 
-                  CameraPosition(
+                    Positioned.fill(
 
-                    target:
-                    currentPosition,
+                      child: GoogleMap(
 
-                    zoom: 17,
-                  ),
+                        initialCameraPosition:
 
-                  myLocationEnabled: true,
+                        CameraPosition(
 
-                  myLocationButtonEnabled: true,
+                          target:
+                          currentPosition,
 
-                  zoomControlsEnabled: false,
+                          zoom: 17,
+                        ),
 
-                  markers: markers,
+                        myLocationEnabled: true,
 
-                  onMapCreated: (controller) {
+                        myLocationButtonEnabled: true,
 
-                    mapController = controller;
-                  },
+                        zoomControlsEnabled: false,
+
+                        markers: visibleMarkers,
+
+                        // Empurra para cima o logotipo do Google e os
+                        // controles, que o Maps exige manter visiveis, para
+                        // que a legenda do rodape nao os cubra.
+                        padding:
+                        const EdgeInsets.only(bottom: 44),
+
+                        onMapCreated: (controller) {
+
+                          mapController = controller;
+                        },
+                      ),
+                    ),
+
+                    Align(
+
+                      alignment: Alignment.topCenter,
+
+                      child: MapProximitySummary(
+
+                        total: nearbyTotal,
+                        highRisk: nearbyHighRisk,
+                        radiusKm: _raioKm,
+                        days: _janelaDias,
+                      ),
+                    ),
+
+                    Align(
+
+                      alignment: Alignment.bottomCenter,
+
+                      child: MapRiskLegend(
+                        selected: riskFilter,
+                        onSelect: (risco) {
+                          setState(() => riskFilter = risco);
+                        },
+                      ),
+                    ),
+
+                    // ⛶ TELA CHEIA
+                    // Canto oposto ao do resumo, para os dois não brigarem.
+                    // A caixa arredondada divide espaço com o resumo, os
+                    // botões e a navegação; para ler a distribuição dos
+                    // avistamentos é preciso o mapa inteiro.
+                    Align(
+
+                      alignment: Alignment.topRight,
+
+                      child: Padding(
+
+                        padding: const EdgeInsets.all(AppSpacing.sm),
+
+                        child: Semantics(
+
+                          label: "map_open_fullscreen".tr(),
+
+                          button: true,
+
+                          child: Material(
+
+                            color: Colors.white.withValues(alpha: 0.94),
+
+                            shape: const CircleBorder(),
+
+                            child: InkWell(
+
+                              customBorder: const CircleBorder(),
+
+                              onTap: abrirMapaTelaCheia,
+
+                              child: const Padding(
+                                padding: EdgeInsets.all(7),
+                                child: Icon(
+                                  Icons.fullscreen,
+                                  color: Colors.black87,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -546,6 +727,75 @@ class _HomePageState extends State<HomePage> {
 
                         style:
                         AppTextStyles.sectionTitle,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: AppSpacing.sm),
+
+          // 📖 CATÁLOGO
+          // Entrada deliberadamente secundária: identificar é o que o app faz,
+          // consultar é o que ele também permite. Um botão do mesmo peso que o
+          // de identificar competiria com ele e confundiria o propósito da
+          // tela.
+          Padding(
+
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg,
+            ),
+
+            child: Material(
+
+              color: Colors.white.withValues(alpha: 0.08),
+
+              borderRadius: BorderRadius.circular(16),
+
+              child: InkWell(
+
+                borderRadius: BorderRadius.circular(16),
+
+                onTap: () {
+
+                  Navigator.push(
+                    context,
+                    AppPageRoute(
+                      builder: (_) => const SpeciesCatalogPage(),
+                      transition: AppTransition.slide,
+                    ),
+                  );
+                },
+
+                child: SizedBox(
+
+                  width: double.infinity,
+
+                  height: 52,
+
+                  child: Row(
+
+                    mainAxisAlignment: MainAxisAlignment.center,
+
+                    children: [
+
+                      const Icon(
+                        Icons.menu_book_outlined,
+                        color: AppColors.onBackground,
+                        size: 20,
+                      ),
+
+                      const SizedBox(width: AppSpacing.sm),
+
+                      Text(
+                        "catalog_open".tr(),
+                        style: const TextStyle(
+                          color: AppColors.onBackground,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),

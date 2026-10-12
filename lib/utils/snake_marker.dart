@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 
+import 'snake_risk.dart';
+
 /// Desenha o marcador do mapa: a foto da espécie dentro de um alfinete
 /// circular, com a borda colorida pelo risco.
 ///
@@ -18,11 +20,29 @@ class SnakeMarker {
 
   const SnakeMarker._();
 
-  /// Vermelho e verde carregam o significado, mas nunca sozinhos: a janela de
-  /// informação sempre repete "Peçonhenta" ou "Não peçonhenta" por escrito,
-  /// porque cerca de 8% dos homens têm alguma deficiência na visão de cores.
-  static const Color _perigo = Color(0xFFC62828);
-  static const Color _seguro = Color(0xFF2E7D32);
+  /// As três cores são as MESMAS da tela de detalhe, de propósito: o mapa
+  /// mostrava só vermelho e verde, enquanto a ficha já classificava em três
+  /// níveis pela dentição. Quem via um pino verde e abria uma opistóglifa
+  /// encontrava um aviso amarelo, sem entender a troca.
+  ///
+  /// A cor nunca carrega o significado sozinha: a janela de informação sempre
+  /// repete o nível por escrito, porque cerca de 8% dos homens têm alguma
+  /// deficiência na visão de cores.
+  static const Color _alto = Color(0xFFC62828);
+  static const Color _medio = Color(0xFFEF6C00);
+  static const Color _baixo = Color(0xFF2E7D32);
+
+  /// Exposto para a legenda do mapa desenhar exatamente as mesmas cores.
+  static Color colorFor(SnakeRisk risk) {
+    switch (risk) {
+      case SnakeRisk.high:
+        return _alto;
+      case SnakeRisk.medium:
+        return _medio;
+      case SnakeRisk.low:
+        return _baixo;
+    }
+  }
 
   /// Um marcador por espécie é reaproveitado entre todos os registros dela.
   /// Sem isso, vinte avistamentos de jararaca baixariam a mesma foto vinte
@@ -36,14 +56,14 @@ class SnakeMarker {
   static Future<BitmapDescriptor> build({
     required String cacheKey,
     required String? imageUrl,
-    required bool poisonous,
+    required SnakeRisk risk,
   }) {
-    final chave = '$cacheKey|$poisonous';
+    final chave = '$cacheKey|${risk.name}';
 
     final pronto = _cache[chave];
     if (pronto != null) return Future.value(pronto);
 
-    return _emCurso[chave] ??= _desenhar(imageUrl, poisonous).then((bmp) {
+    return _emCurso[chave] ??= _desenhar(imageUrl, risk).then((bmp) {
       _cache[chave] = bmp;
       _emCurso.remove(chave);
       return bmp;
@@ -52,14 +72,18 @@ class SnakeMarker {
       // Falha de rede não pode deixar o avistamento sumir do mapa: cai no
       // pino padrão, com a cor certa.
       return BitmapDescriptor.defaultMarkerWithHue(
-        poisonous ? BitmapDescriptor.hueRed : BitmapDescriptor.hueGreen,
+        switch (risk) {
+          SnakeRisk.high => BitmapDescriptor.hueRed,
+          SnakeRisk.medium => BitmapDescriptor.hueOrange,
+          SnakeRisk.low => BitmapDescriptor.hueGreen,
+        },
       );
     });
   }
 
   static Future<BitmapDescriptor> _desenhar(
     String? imageUrl,
-    bool poisonous,
+    SnakeRisk risk,
   ) async {
 
     const double lado = 80;        // largura do alfinete em pixels
@@ -67,7 +91,7 @@ class SnakeMarker {
     const double borda = 4;
     const double ponta = 14;       // bico que aponta para a coordenada
 
-    final cor = poisonous ? _perigo : _seguro;
+    final cor = colorFor(risk);
 
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
