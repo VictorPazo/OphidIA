@@ -30,6 +30,27 @@ class SnakeInformationService {
     }
   }
 
+  /// Todas as espécies cadastradas, em ordem de nome científico.
+  ///
+  /// Traz as linhas inteiras de uma vez, em vez de paginar: são poucas
+  /// centenas de registros, e tê-las em memória deixa a busca da tela de
+  /// catálogo instantânea — filtrar no aparelho evita uma ida ao servidor
+  /// por tecla digitada. Também significa que tocar num item abre a ficha
+  /// sem nova consulta, porque o modelo completo já está carregado.
+  Future<List<SnakeModel>> listAllSnakes() async {
+
+    // `ascending: true` é obrigatório: o padrão do cliente Dart é
+    // DESCENDENTE, então `.order('specie')` sozinho devolvia a lista de Z a A.
+    final response = await supabase
+        .from('snakes')
+        .select()
+        .order('specie', ascending: true);
+
+    return (response as List)
+        .map((row) => SnakeModel.fromMap(row as Map<String, dynamic>))
+        .toList();
+  }
+
   /// Busca pelo nome científico, do jeito que o modelo devolve
   /// ('Corallus hortulana')
   /// É por aqui que a tela de câmera resolve a espécie identificada. O
