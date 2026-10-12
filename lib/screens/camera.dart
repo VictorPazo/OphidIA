@@ -7,7 +7,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:image/image.dart' as img;
 import 'package:snakes_of_imt/screens/snake_information.dart';
@@ -92,6 +91,8 @@ class _CameraPageState
 
     await loadInitialFlashPreference();
 
+    await loadZoomHintPreference();
+
     await initCamera();
   }
 
@@ -142,6 +143,10 @@ class _CameraPageState
       } catch (e) {
         // Câmeras sem flash (ex: frontal) rejeitam o modo — ignora.
       }
+
+      // Os limites de zoom pertencem à controller, então são relidos a cada
+      // troca de câmera: a frontal costuma ter faixa diferente da traseira.
+      await loadZoomLimits();
 
       setState(() {});
 
@@ -244,6 +249,143 @@ class _CameraPageState
         ),
       );
     }
+  }
+
+  // 🔍 ZOOM
+  //
+  // Limites e nível atual. O mínimo e o máximo vêm do próprio sensor, porque
+  // variam por aparelho e por lente — pedir um valor fora da faixa lança
+  // exceção.
+  double zoomMinimo = 1.0;
+  double zoomMaximo = 1.0;
+  double zoomAtual = 1.0;
+
+  // Guarda o zoom de quando a pinça começou. Sem isso, cada atualização
+  // multiplicaria a escala sobre o valor já alterado, e o zoom dispararia
+  // ao primeiro movimento.
+  double zoomAoIniciarPinca = 1.0;
+
+  Future<void> loadZoomLimits() async {
+    if (_controller == null) return;
+    try {
+      zoomMinimo = await _controller!.getMinZoomLevel();
+      zoomMaximo = await _controller!.getMaxZoomLevel();
+      zoomAtual = zoomMinimo;
+    } catch (e) {
+      // Câmera sem controle de zoom: os limites ficam em 1.0 e a pinça
+      // simplesmente não faz nada.
+      zoomMinimo = zoomMaximo = zoomAtual = 1.0;
+    }
+  }
+
+  void handleZoomStart(ScaleStartDetails details) {
+    zoomAoIniciarPinca = zoomAtual;
+  }
+
+  Future<void> handleZoomUpdate(ScaleUpdateDetails details) =>
+      applyZoom(zoomAoIniciarPinca * details.scale);
+
+  /// Caminho único para mexer no zoom, usado pela pinça e pelo chip.
+  Future<void> applyZoom(double bruto) async {
+
+    if (_controller == null ||
+        !_controller!.value.isInitialized ||
+        !temZoom) {
+      return;
+    }
+
+    final alvo = bruto.clamp(zoomMinimo, zoomMaximo);
+
+    // Ignora variação imperceptível: a pinça dispara muitas atualizações por
+    // segundo, e cada chamada ao sensor tem custo.
+    if ((alvo - zoomAtual).abs() < 0.01) return;
+
+    try {
+      await _controller!.setZoomLevel(alvo);
+      if (!mounted) return;
+      setState(() {
+        zoomAtual = alvo;
+      });
+    } catch (e) {
+      // Aparelho recusou o nível pedido — mantém o atual.
+    }
+  }
+
+  /// O aparelho tem faixa de zoom usável? Câmeras simples devolvem mínimo e
+  /// máximo iguais, e aí não há controle nenhum a oferecer.
+  bool get temZoom => zoomMaximo > zoomMinimo + 0.05;
+
+  /// "1x" quando o nível é inteiro, "1.5x" quando não — como nas câmeras
+  /// nativas, que nunca escrevem "1.0x".
+  String get zoomLabel {
+    final n = (zoomAtual * 10).round() / 10;
+    return n == n.roundToDouble()
+        ? '${n.toInt()}x'
+        : '${n.toStringAsFixed(1)}x';
+  }
+
+  /// Paradas de zoom do chip. Só entram as que o aparelho alcança, porque
+  /// pedir nível fora da faixa lança exceção.
+  List<double> zoomStops() {
+    final paradas = <double>[zoomMinimo];
+    for (final parada in const [2.0, 4.0]) {
+      if (parada > zoomMinimo + 0.05 && parada < zoomMaximo - 0.05) {
+        paradas.add(parada);
+      }
+    }
+    return paradas;
+  }
+
+  /// Avança para a próxima parada, voltando ao mínimo depois da última.
+  ///
+  /// A pinça já funcionava, mas exigia que a pessoa adivinhasse que ela
+  /// existe. Um chip que responde ao toque mostra o recurso a quem nunca
+  /// tentaria dois dedos na tela.
+  Future<void> cycleZoom() async {
+
+    final paradas = zoomStops();
+    if (paradas.length < 2) return;
+
+    int atual = 0;
+    for (int i = 0; i < paradas.length; i++) {
+      if (zoomAtual >= paradas[i] - 0.05) atual = i;
+    }
+
+    await applyZoom(paradas[(atual + 1) % paradas.length]);
+  }
+
+  // 💡 DICA DE ZOOM
+  // Mesmo padrão do histórico: aparece até a pessoa dispensar, e aí não volta
+  // mais. Uma dica permanente viraria ruído depois do primeiro uso.
+  bool showZoomHint = false;
+
+  Future<void> loadZoomHintPreference() async {
+
+    final prefs =
+    await SharedPreferences.getInstance();
+
+    final bool dismissed =
+        prefs.getBool('cameraZoomHintDismissed') ?? false;
+
+    if (!mounted) return;
+
+    setState(() {
+      showZoomHint = !dismissed;
+    });
+  }
+
+  Future<void> dismissZoomHint() async {
+
+    final prefs =
+    await SharedPreferences.getInstance();
+
+    await prefs.setBool('cameraZoomHintDismissed', true);
+
+    if (!mounted) return;
+
+    setState(() {
+      showZoomHint = false;
+    });
   }
 
   // 🔄 TROCAR CÂMERA
@@ -868,8 +1010,6 @@ class _CameraPageState
       return;
     }
 
-    final user = Supabase.instance.client.auth.currentUser;
-
     // GPS —  nunca bloqueia a exibição do resultado.
     final position = await positionFuture;
 
@@ -1259,8 +1399,21 @@ class _CameraPageState
                           .value
                           .aspectRatio,
 
-                  child: CameraPreview(
-                    _controller!,
+                  // 🔍 ZOOM POR PINÇA
+                  // Serve à segurança antes de tudo: permite enquadrar o
+                  // animal sem se aproximar dele. E ajuda a identificação
+                  // pelo mesmo motivo — o modelo decide pelo padrão do corpo,
+                  // e uma cobra distante ocupa poucos pixels do quadro.
+                  //
+                  // Diferente de recortar a foto depois, que medimos ser
+                  // prejudicial: aproximar ANTES preserva a resolução, enquanto
+                  // recortar DEPOIS joga pixels fora e tira o contexto.
+                  child: GestureDetector(
+                    onScaleStart: handleZoomStart,
+                    onScaleUpdate: handleZoomUpdate,
+                    child: CameraPreview(
+                      _controller!,
+                    ),
                   ),
                 ),
               ),
@@ -1368,6 +1521,175 @@ class _CameraPageState
               ),
             ),
           ),
+
+          // 🔍 CONTROLE DE ZOOM
+          //
+          // A pinça funciona desde o início, mas era invisível: sem nada na
+          // tela, só descobria o zoom quem tentasse dois dedos por conta
+          // própria. O chip resolve as duas pontas — mostra o nível atual e,
+          // no toque, troca de nível, o que já revela que o recurso existe.
+          //
+          // Fica acima dos botões e FORA do quadro da câmera, de propósito:
+          // um controle sobre o preview cobriria justamente o animal que a
+          // pessoa está tentando enquadrar.
+          //
+          // Antes o indicador estava no topo centralizado, no mesmo lugar do
+          // logotipo — que, sendo desenhado depois, pintava em cima dele. O
+          // nível de zoom nunca chegou a aparecer.
+          if (cameraErrorMessage == null && temZoom)
+            Positioned(
+
+              // Os 128 px não são arbitrários: no quadro de 80% da
+              // largura, a faixa escura entre os botões e a borda do
+              // enquadramento vai de 115 a ~228 px da base num celular comum
+              // (medido num S25 FE). Chip e dica ocupam de 128 a 228 e cabem
+              // ali inteiros, sem cobrir a imagem.
+              //
+              // Em telas bem curtas essa faixa encurta e os dois passam a
+              // flutuar sobre o preview. Não há como evitar — num sensor 16:9
+              // sobram só uns 40 px — e é o que as câmeras nativas fazem de
+              // qualquer forma.
+              bottom: 128,
+              left: 0,
+              right: 0,
+
+              child: Center(
+
+                child: Semantics(
+
+                  label: "camera_zoom_change".tr(),
+
+                  button: true,
+
+                  child: Material(
+
+                    color: Colors.black.withValues(alpha: 0.55),
+
+                    shape: const StadiumBorder(),
+
+                    child: InkWell(
+
+                      customBorder: const StadiumBorder(),
+
+                      onTap: cycleZoom,
+
+                      child: Padding(
+
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.md,
+                          vertical: 7,
+                        ),
+
+                        child: Row(
+
+                          mainAxisSize: MainAxisSize.min,
+
+                          children: [
+
+                            const Icon(
+                              Icons.zoom_in,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+
+                            const SizedBox(width: 5),
+
+                            Text(
+
+                              zoomLabel,
+
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          // 💡 DICA DO ZOOM
+          // O texto diz para que serve, não só o gesto: aproximar com a lente
+          // em vez de aproximar o corpo é o que importa aqui.
+          if (cameraErrorMessage == null && temZoom && showZoomHint)
+            Positioned(
+
+              bottom: 172,
+              left: AppSpacing.lg,
+              right: AppSpacing.lg,
+
+              child: Container(
+
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  AppSpacing.sm,
+                  AppSpacing.sm,
+                  AppSpacing.sm,
+                ),
+
+                decoration: BoxDecoration(
+
+                  color: AppColors.accent,
+
+                  borderRadius: BorderRadius.circular(14),
+                ),
+
+                child: Row(
+
+                  children: [
+
+                    const Icon(
+                      Icons.pinch,
+                      color: AppColors.onBackground,
+                      size: 20,
+                    ),
+
+                    const SizedBox(width: AppSpacing.sm),
+
+                    Expanded(
+
+                      child: Text(
+
+                        "camera_zoom_hint".tr(),
+
+                        style: const TextStyle(
+                          color: AppColors.onBackground,
+                          fontSize: 12.5,
+                          height: 1.25,
+                        ),
+                      ),
+                    ),
+
+                    Semantics(
+
+                      label: "dismiss_hint".tr(),
+
+                      button: true,
+
+                      child: IconButton(
+
+                        icon: const Icon(
+                          Icons.close,
+                          color: AppColors.onBackground,
+                          size: 18,
+                        ),
+
+                        padding: EdgeInsets.zero,
+
+                        constraints: const BoxConstraints(),
+
+                        onPressed: dismissZoomHint,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
 
           // 🔘 BOTÕES
           Positioned(
