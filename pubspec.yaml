@@ -42,3 +42,8 @@ flutter:
     - assets/UI-UX/logo.png
     - assets/dentition/
     - assets/translations/
+    # Lista das especies que o modelo reconhece. E o MESMO arquivo que
+    # o servidor de inferencia carrega, declarado como asset em vez de
+    # duplicado: o catalogo precisa saber o que a IA identifica, e duas
+    # copias divergiriam na primeira troca de modelo.
+    - lib/models/classes.json
