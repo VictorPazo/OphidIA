@@ -8,33 +8,19 @@ import '../services/snake_info.dart';
 import '../theme/app_page_route.dart';
 import '../theme/app_theme.dart';
 import '../theme/animated_entrance.dart';
+import '../theme/info_hint.dart';
 import '../utils/dentition_helper.dart';
+import '../utils/snake_risk.dart';
 import 'history.dart';
 import 'home.dart';
 
-enum SnakeRisk { low, medium, high }
+// A classificação de risco vive em utils/snake_risk.dart: o mapa precisa da
+// mesma regra, e um utilitário não deve importar uma tela.
 
-String _normalize(String s) {
-  const from = 'áàâãäéèêëíìîïóòôõöúùûüç';
-  const to   = 'aaaaaeeeeiiiiooooouuuuc';
-  var out = s.toLowerCase().trim();
-  for (var i = 0; i < from.length; i++) {
-    out = out.replaceAll(from[i], to[i]);
-  }
-  return out;
-}
-
-bool _isAglyphous(String d) => d.contains('aglif') || d.contains('aglyph');
-bool _isOpisthoglyphous(String d) => d.contains('opistoglif') || d.contains('opisthoglyph');
-bool _isSolenoOrProtero(String d) => d.contains('solenoglif') || d.contains('proteroglif') || d.contains('solenoglyph') || d.contains('proteroglyph');
-
-SnakeRisk? riskFromDentition(String dentition) {
-  final d = _normalize(dentition);
-  if (_isAglyphous(d)) return SnakeRisk.low;
-  if (_isOpisthoglyphous(d)) return SnakeRisk.medium;
-  if (_isSolenoOrProtero(d)) return SnakeRisk.high;
-  return null;
-}
+// Apelidos locais para o corpo desta tela continuar como estava.
+String _normalize(String s) => normalizeDentition(s);
+bool _isAglyphous(String d) => isAglyphous(d);
+bool _isOpisthoglyphous(String d) => isOpisthoglyphous(d);
 
 class SnakeInformationScreen
     extends StatefulWidget {
@@ -556,6 +542,19 @@ class _SnakeInformationScreenState
               fontSize: 14,
             ),
           ),
+
+          // ℹ️ O número engana, e por isso precisa de explicação.
+          // Medido em 250 fotos: quando o app mostra 50%, acerta 71% das
+          // vezes; acima de 80% acertou todas. O modelo é subconfiante por
+          // causa do label smoothing usado no treino. Sem essa nota, um
+          // usuário vendo "62%" descarta uma identificação que estava certa.
+          const SizedBox(width: AppSpacing.xs),
+          InfoHint(
+            title: "ai_confidence_info_title".tr(),
+            body: "ai_confidence_info_body".tr(),
+            color: AppColors.onBackground,
+            size: 16,
+          ),
         ],
       ),
     );
@@ -734,12 +733,18 @@ class _SnakeInformationScreenState
     final MaterialColor base =
     effective == SnakeRisk.medium ? Colors.orange : Colors.red;
 
+    // O estado FECHADO precisa caber em poucas linhas: ele aparece logo abaixo
+    // do nome da espécie, e um bloco alto empurra a ficha inteira para fora da
+    // primeira tela. O texto completo continua acessível ao expandir.
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm + 2,
+      ),
       decoration: BoxDecoration(
         color: base.shade50,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: base.shade700),
       ),
       child: Column(
@@ -748,7 +753,11 @@ class _SnakeInformationScreenState
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.warning_amber_rounded, color: base.shade800),
+              Icon(
+                Icons.warning_amber_rounded,
+                color: base.shade800,
+                size: 20,
+              ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
@@ -756,7 +765,8 @@ class _SnakeInformationScreenState
                   style: TextStyle(
                     color: base.shade900,
                     fontWeight: FontWeight.w600,
-                    fontSize: 14,
+                    fontSize: 13,
+                    height: 1.35,
                   ),
                 ),
               ),
@@ -828,57 +838,79 @@ class _SnakeInformationScreenState
 // ℹ️ AVISO DISCRETO PARA RISCO BAIXO
 // Uma linha no fim da ficha. Não polui, mas continua lá caso o modelo
 // tenha errado a espécie.
+  // ℹ️ AVISO DE RISCO BAIXO
+  //
+  // Este bloco fica DIRETO sobre o fundo verde escuro da tela, sem o cartão
+  // branco que os outros têm. As cores eram `black45` e `black54`, pensadas
+  // para fundo claro — sobre o verde escuro o texto ficava quase invisível.
+  //
+  // Agora usa um cartão translúcido claro com texto branco. Continua discreto,
+  // como convém a uma serpente sem risco, mas legível. O contraste do branco
+  // sobre esse fundo passa com folga nos critérios de acessibilidade, o que o
+  // preto não fazia nem de longe.
   Widget buildLowRiskDisclaimer() {
-    return InkWell(
+    return Material(
+      color: Colors.white.withValues(alpha: 0.10),
       borderRadius: BorderRadius.circular(12),
-      onTap: () => setState(() => disclaimerExpanded = !disclaimerExpanded),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm,
-          vertical: AppSpacing.sm,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.info_outline, size: 16, color: Colors.black45),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => setState(() => disclaimerExpanded = !disclaimerExpanded),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm + 2,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(
+                    Icons.info_outline,
+                    size: 18,
+                    color: AppColors.onBackground,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      "disclaimer_short_low".tr(),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        height: 1.35,
+                        color: AppColors.onBackground,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    disclaimerExpanded ? Icons.expand_less : Icons.expand_more,
+                    size: 20,
+                    color: AppColors.onBackground,
+                  ),
+                ],
+              ),
+              AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                alignment: Alignment.topCenter,
+                child: disclaimerExpanded
+                    ? Padding(
+                  padding: const EdgeInsets.only(
+                    top: AppSpacing.sm,
+                    left: 26,
+                  ),
                   child: Text(
-                    "disclaimer_short_low".tr(),
-                    style: const TextStyle(fontSize: 12.5, color: Colors.black54),
+                    "medical_disclaimer_text".tr(),
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      height: 1.45,
+                      color: AppColors.onBackgroundMuted,
+                    ),
                   ),
-                ),
-                Icon(
-                  disclaimerExpanded ? Icons.expand_less : Icons.expand_more,
-                  size: 18,
-                  color: Colors.black45,
-                ),
-              ],
-            ),
-            AnimatedSize(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeInOut,
-              alignment: Alignment.topCenter,
-              child: disclaimerExpanded
-                  ? Padding(
-                padding: const EdgeInsets.only(
-                  top: AppSpacing.xs,
-                  left: 24,
-                ),
-                child: Text(
-                  "medical_disclaimer_text".tr(),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    height: 1.4,
-                    color: Colors.black54,
-                  ),
-                ),
-              )
-                  : const SizedBox(width: double.infinity),
-            ),
-          ],
+                )
+                    : const SizedBox(width: double.infinity),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -960,12 +992,25 @@ class _SnakeInformationScreenState
       String label,
       String value, {
         required bool italic,
+        InfoHint? hint,
       }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        fieldLabel(label),
+        // O "i" fica colado no rótulo, e não no valor: ele explica o que o
+        // campo significa, não o conteúdo daquela espécie em particular.
+        if (hint == null)
+          fieldLabel(label)
+        else
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              fieldLabel(label),
+              const SizedBox(width: 2),
+              hint,
+            ],
+          ),
         const SizedBox(height: AppSpacing.xs),
         Text(
           value,
@@ -1014,6 +1059,15 @@ class _SnakeInformationScreenState
                     poisonousLabel,
                     poisonous,
                     italic: false,
+
+                    // ℹ️ "Venenosa" é o termo que o usuário procura, mas é o
+                    // termo errado: serpente é peçonhenta, porque inocula. O
+                    // izinho ensina a diferença sem obrigar a tela a usar
+                    // vocabulário que ninguém pesquisaria.
+                    hint: InfoHint(
+                      title: "poisonous_info_title".tr(),
+                      body: "poisonous_info_body".tr(),
+                    ),
                   ),
                 ),
                 const SizedBox(width: AppSpacing.md),
