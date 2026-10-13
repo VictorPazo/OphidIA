@@ -119,23 +119,50 @@ class _LoginPageState extends State<LoginPage> {
 
                     const SizedBox(height: AppSpacing.lg),
 
-                    // 👋 TITULO
-                    Text(
-                      "welcome".tr(),
+                    // 👋 TITULO E SUBTITULO
+                    //
+                    // A margem lateral existe porque os dois eram filhos
+                    // diretos da Column e ocupavam a largura inteira da tela:
+                    // o subtítulo encostava nas bordas num celular estreito.
+                    // `textAlign: center` centraliza o texto, mas não cria
+                    // folga nenhuma.
+                    //
+                    // A largura máxima mantém a linha curta mesmo em telas
+                    // largas, onde o texto se esticaria de ponta a ponta.
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.xl,
+                      ),
 
-                      style: AppTextStyles.screenTitle,
-                    ),
+                      child: Column(
 
-                    const SizedBox(height: AppSpacing.sm),
+                        children: [
 
-                    // 📄 SUBTITULO
-                    Text(
-                      "login_subtitle".tr(),
+                          Text(
+                            "welcome".tr(),
 
-                      textAlign: TextAlign.center,
+                            textAlign: TextAlign.center,
 
-                      style: const TextStyle(
-                        color: AppColors.onBackgroundMuted,
+                            style: AppTextStyles.screenTitle,
+                          ),
+
+                          const SizedBox(height: AppSpacing.sm),
+
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 320),
+
+                            child: Text(
+                              "login_subtitle".tr(),
+
+                              textAlign: TextAlign.center,
+
+                              style: const TextStyle(
+                                color: AppColors.onBackgroundMuted,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
 
