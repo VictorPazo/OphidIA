@@ -72,6 +72,13 @@ class _CameraPageState
   // um loading diferente do de isConfirming (que é o upload+IA).
   bool isDetecting = false;
 
+  // 📸 CAPTURA EM ANDAMENTO
+  // O plugin da câmera recusa uma segunda `takePicture` enquanto a primeira
+  // não voltou, e a recusa vem como exceção. Entre o toque e a foto existe o
+  // tempo do autofoco, que é justamente quando a pessoa toca de novo achando
+  // que o botão não respondeu.
+  bool capturando = false;
+
   static const String snakePhotoHeroTag = 'snake_photo_hero';
 
   @override
@@ -1198,8 +1205,17 @@ class _CameraPageState
   // 📸 FOTO
   Future<void> takePhoto() async {
 
-    if (_controller != null &&
-        _controller!.value.isInitialized) {
+    if (_controller == null ||
+        !_controller!.value.isInitialized ||
+        capturando) {
+      return;
+    }
+
+    setState(() {
+      capturando = true;
+    });
+
+    try {
 
       // O modo de flash já fica aplicado à controller em tempo real
       // pelo toggle da tela (toggleFlash) e ao trocar de câmera
@@ -1210,12 +1226,37 @@ class _CameraPageState
 
       HapticFeedback.mediumImpact();
 
+      if (!mounted) return;
+
       setState(() {
         confirmImagePath = image.path;
         confirmFromGallery = false;
       });
 
       await runSnakeDetection(image.path);
+
+    } on CameraException catch (e) {
+
+      // Falha de captura não pode derrubar a tela. O aparelho recusa a foto
+      // em situações legítimas — a câmera foi tomada por outro app, o
+      // armazenamento encheu — e o usuário precisa poder tentar de novo.
+      debugPrint('Falha ao capturar: ${e.code} ${e.description}');
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("camera_generic_error".tr())),
+      );
+
+    } finally {
+
+      // Libera o botão mesmo quando a captura falhou: sem isto, um erro
+      // deixaria a câmera inutilizável até sair e voltar para a tela.
+      if (mounted) {
+        setState(() {
+          capturando = false;
+        });
+      }
     }
   }
 
@@ -1729,9 +1770,15 @@ class _CameraPageState
                 ),
 
                 // 📸 FOTO
+                // Enquanto a captura está em curso o botão apaga e para de
+                // responder. A guarda em `takePhoto` já evita a exceção, mas
+                // sozinha ela deixaria o botão parecendo quebrado: a pessoa
+                // toca, nada muda na tela, e ela toca de novo.
                 Material(
 
-                  color: Colors.white,
+                  color: capturando
+                      ? Colors.white54
+                      : Colors.white,
 
                   shape: const CircleBorder(
                     side: BorderSide(
@@ -1744,21 +1791,31 @@ class _CameraPageState
 
                     customBorder: const CircleBorder(),
 
-                    onTap: takePhoto,
+                    onTap: capturando ? null : takePhoto,
 
-                    child: const SizedBox(
+                    child: SizedBox(
 
                       width: 85,
                       height: 85,
 
-                      child: Icon(
+                      child: capturando
 
-                        Icons.camera_alt,
+                          ? const Padding(
+                              padding: EdgeInsets.all(26),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 3,
+                                color: AppColors.background,
+                              ),
+                            )
 
-                        color: AppColors.background,
+                          : const Icon(
 
-                        size: 35,
-                      ),
+                              Icons.camera_alt,
+
+                              color: AppColors.background,
+
+                              size: 35,
+                            ),
                     ),
                   ),
                 ),
