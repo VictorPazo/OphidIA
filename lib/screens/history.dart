@@ -736,13 +736,19 @@ class _HistoryPageState
                                 width: AppSpacing.sm,
                               ),
 
+                              // "Peçonhenta" é o termo correto: serpente
+                              // inocula a toxina, não a carrega para ser
+                              // ingerida. Estas são as mesmas chaves que a
+                              // janela do marcador no mapa já usava; o card
+                              // vinha de `poisonous`, que é o RÓTULO do campo
+                              // na ficha, não o valor.
                               Text(
 
                                 snake['poisonous']
                                     == true
 
-                                    ? "poisonous".tr()
-                                    : "non_poisonous".tr(),
+                                    ? "poisonous_yes".tr()
+                                    : "poisonous_no".tr(),
 
                                 style:
                                 const TextStyle(

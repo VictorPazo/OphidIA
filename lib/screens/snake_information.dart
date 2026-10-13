@@ -733,24 +733,59 @@ class _SnakeInformationScreenState
     final MaterialColor base =
     effective == SnakeRisk.medium ? Colors.orange : Colors.red;
 
+    // 🟠 OPISTÓGLIFA TEM TEXTO PRÓPRIO
+    //
+    // Os dois níveis dividiam a mesma mensagem e o mesmo botão do SAMU, o que
+    // tratava a mordida de uma cobra-cipó como acidente botrópico. Não é: a
+    // presa fica no fundo da boca, não existe soro para ela, e os casos
+    // descritos na literatura ficam no local e passam em dias.
+    //
+    // O que o texto do nível médio não pode perder é o aviso de que esses
+    // sinais LEMBRAM os de uma jararaca. Acidentes com Philodryas já levaram
+    // a uso inoportuno de soro por confusão de diagnóstico, e o modelo acerta
+    // a espécie em 3 de cada 4 fotos — a chance de erro faz parte da
+    // orientação, não é ressalva de rodapé.
+    final bool medio = effective == SnakeRisk.medium;
+
+    final String chaveResumo =
+        medio ? "disclaimer_short_medium" : "disclaimer_short";
+    final String chaveTitulo =
+        medio ? "medium_disclaimer_title" : "medical_disclaimer_title";
+    final String chaveTexto =
+        medio ? "medium_disclaimer_text" : "medical_disclaimer_text";
+
     // O estado FECHADO precisa caber em poucas linhas: ele aparece logo abaixo
     // do nome da espécie, e um bloco alto empurra a ficha inteira para fora da
     // primeira tela. O texto completo continua acessível ao expandir.
+    // O "Ver mais" ficava numa linha só dele, com 32 px de altura mínima mais
+    // o espaço acima, e era o que engordava o cartão fechado. A seta no fim da
+    // própria linha do texto diz a mesma coisa sem gastar altura nenhuma, e o
+    // alvo de toque melhora: a faixa inteira responde, não só duas palavras.
+    //
+    // É o mesmo padrão que `buildLowRiskDisclaimer` já usava, então os dois
+    // avisos passam a abrir do mesmo jeito.
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm + 2,
-      ),
       decoration: BoxDecoration(
         color: base.shade50,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: base.shade700),
       ),
-      child: Column(
+      child: Material(
+        color: Colors.transparent,
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () =>
+                setState(() => disclaimerExpanded = !disclaimerExpanded),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.sm + 2,
+              ),
+              child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(
@@ -761,7 +796,7 @@ class _SnakeInformationScreenState
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
-                  "disclaimer_short".tr(),
+                  chaveResumo.tr(),
                   style: TextStyle(
                     color: base.shade900,
                     fontWeight: FontWeight.w600,
@@ -770,7 +805,17 @@ class _SnakeInformationScreenState
                   ),
                 ),
               ),
+              const SizedBox(width: AppSpacing.sm),
+              Icon(
+                disclaimerExpanded
+                    ? Icons.expand_less
+                    : Icons.expand_more,
+                color: base.shade800,
+                size: 20,
+              ),
             ],
+              ),
+            ),
           ),
 
           AnimatedSize(
@@ -779,12 +824,19 @@ class _SnakeInformationScreenState
             alignment: Alignment.topCenter,
             child: disclaimerExpanded
                 ? Padding(
-              padding: const EdgeInsets.only(top: AppSpacing.sm),
+              // O padding lateral vinha do Container e saiu com ele, então o
+              // conteúdo expandido repõe o seu.
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                0,
+                AppSpacing.md,
+                AppSpacing.md,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "medical_disclaimer_title".tr(),
+                    chaveTitulo.tr(),
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: base.shade900,
@@ -792,45 +844,35 @@ class _SnakeInformationScreenState
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    "medical_disclaimer_text".tr(),
+                    chaveTexto.tr(),
                     style: TextStyle(color: base.shade900, fontSize: 13),
                   ),
-                  const SizedBox(height: AppSpacing.md),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: base.shade700,
-                        foregroundColor: Colors.white,
+                  // O SAMU é para emergência. Oferecê-lo numa mordida de
+                  // opistóglifa seria desproporcional e ensinaria a acionar o
+                  // 192 por engano. O texto do nível médio orienta a procurar
+                  // atendimento se o quadro piorar, que é a conduta certa ali.
+                  if (!medio) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: base.shade700,
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: callSamu,
+                        icon: const Icon(Icons.phone),
+                        label: Text("call_samu".tr()),
                       ),
-                      onPressed: callSamu,
-                      icon: const Icon(Icons.phone),
-                      label: Text("call_samu".tr()),
                     ),
-                  ),
+                  ],
                 ],
               ),
             )
                 : const SizedBox(width: double.infinity),
           ),
-
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              style: TextButton.styleFrom(
-                foregroundColor: base.shade900,
-                padding: EdgeInsets.zero,
-                minimumSize: const Size(0, 32),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              onPressed: () =>
-                  setState(() => disclaimerExpanded = !disclaimerExpanded),
-              child: Text(
-                disclaimerExpanded ? "see_less".tr() : "see_more".tr(),
-              ),
-            ),
-          ),
         ],
+        ),
       ),
     );
   }
@@ -898,8 +940,11 @@ class _SnakeInformationScreenState
                     top: AppSpacing.sm,
                     left: 26,
                   ),
+                  // Áglifa não inocula veneno: abrir aqui o texto de
+                  // primeiros socorros de acidente peçonhento assustaria sem
+                  // motivo. O que vale aqui é cuidado de ferida.
                   child: Text(
-                    "medical_disclaimer_text".tr(),
+                    "low_disclaimer_text".tr(),
                     style: const TextStyle(
                       fontSize: 12.5,
                       height: 1.45,
@@ -1060,10 +1105,15 @@ class _SnakeInformationScreenState
                     poisonous,
                     italic: false,
 
-                    // ℹ️ "Venenosa" é o termo que o usuário procura, mas é o
-                    // termo errado: serpente é peçonhenta, porque inocula. O
-                    // izinho ensina a diferença sem obrigar a tela a usar
-                    // vocabulário que ninguém pesquisaria.
+                    // ℹ️ O campo diz "Peçonhenta", que é o termo correto:
+                    // serpente inocula a toxina, não a carrega para ser
+                    // ingerida. Chegamos a usar "Venenosa" por ser a palavra
+                    // que a pessoa procura, mas usar o termo errado só para
+                    // corrigi-lo no izinho ensinava o erro primeiro.
+                    //
+                    // O izinho continua, agora explicando a diferença e
+                    // dizendo a quem procurou por "venenosa" que achou a
+                    // ficha certa.
                     hint: InfoHint(
                       title: "poisonous_info_title".tr(),
                       body: "poisonous_info_body".tr(),
