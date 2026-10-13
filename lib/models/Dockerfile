@@ -77,7 +77,12 @@ ENV YOLO_CONFIG_DIR=/tmp \
 
 WORKDIR /var/task
 
-COPY main.py classes.json lambda_handler.py ./
+# ---------------------------------------------------------------------------
+# Os pesos vem ANTES do codigo, de proposito. O Docker invalida toda camada
+# seguinte a que mudou: com o codigo copiado primeiro, corrigir uma linha do
+# main.py obrigava a baixar os 107 MB do classificador outra vez. Nesta
+# ordem, mexer no codigo reconstroi so a ultima camada, em segundos.
+# ---------------------------------------------------------------------------
 
 # O detector (22 MB) está versionado no repositório.
 COPY detector_cobra.pt ./
@@ -94,6 +99,10 @@ u='https://github.com/VictorPazo/OphidIA/releases/download/ModeloConvNeXt-Tiny_v
 urllib.request.urlretrieve(u,'best_model.pth');\
 assert os.path.getsize('best_model.pth')==112104519, 'download incompleto do best_model.pth';\
 print('classificador baixado e conferido')"
+
+# O codigo muda a cada ajuste, entao fica por ultimo: so esta camada e
+# reconstruida quando o main.py ou o lambda_handler.py mudam.
+COPY main.py classes.json lambda_handler.py ./
 
 ENTRYPOINT ["python", "-m", "awslambdaric"]
 CMD ["lambda_handler.handler"]

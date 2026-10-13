@@ -129,8 +129,50 @@ Duas formas de evitar isso numa apresentação:
 ambiente fica quente por volta de 10 a 15 minutos sem uso.
 
 **Manter aquecido.** Uma regra do EventBridge chamando a função a cada 5
-minutos resolve de vez. Consome do nível gratuito, mas cabe: são cerca de 8.600
-invocações por mês, contra o limite de 1 milhão.
+minutos resolve de vez, e sai de graça: são cerca de 8.600 invocações e 127 GB-s
+por mês, contra 1 milhão de invocações e 400.000 GB-s do nível gratuito, que no
+caso do Lambda não expira depois de doze meses.
+
+O `lambda_handler.py` reconhece esse ping e responde sem processar nada. Isso é
+necessário, não um refinamento: o Mangum só traduz eventos HTTP, e o
+EventBridge entrega um JSON de agendamento que ele não reconhece. Sem o desvio,
+cada ping terminaria em erro — a cada 5 minutos, quase 300 erros por dia nas
+métricas, escondendo os erros de verdade. Também não daria para apontar o ping
+para uma rota existente, porque `/predict` e `/detect` são POST e rodariam
+inferência de verdade a cada cinco minutos.
+
+### Criar a regra pelo navegador
+
+O caminho curto começa no console do **Lambda**, não no do EventBridge: por ali
+a permissão de invocação é criada junto. Começando pelo EventBridge, seria
+preciso criar uma função IAM à mão.
+
+1. Console AWS, região **sa-east-1 (São Paulo)**, serviço **Lambda**, função
+   `ophidia`
+2. Aba **Configuration**, item **Triggers**, botão **Add trigger**
+3. Origem: **EventBridge (CloudWatch Events)**
+4. Marque **Create a new rule** e preencha:
+
+| Campo | Valor |
+| --- | --- |
+| Rule name | `ophidia-aquecimento` |
+| Rule type | Schedule expression |
+| Schedule expression | `rate(5 minutes)` |
+
+5. **Add**
+
+Confira em **Monitor**: as invocações viram uma linha regular a cada 5 minutos,
+e **Errors** fica em zero.
+
+Para desligar depois da apresentação, console do **EventBridge**, *Rules*,
+`ophidia-aquecimento`, **Disable** — um clique, e religa do mesmo jeito.
+
+Duas limitações que vale saber antes da banca. A regra mantém **um** ambiente
+quente: se duas pessoas usarem o app ao mesmo tempo, a segunda pega partida a
+frio de qualquer forma. E 5 minutos é margem, não garantia — a AWS não
+documenta por quanto tempo mantém o ambiente, e o intervalo observado fica
+entre 5 e 15 minutos de inatividade. Como o custo já é zero, não há motivo
+para espaçar mais.
 
 ---
 
