@@ -9,6 +9,7 @@ import '../models/snake_model.dart';
 import '../services/snake_info.dart';
 import '../theme/app_page_route.dart';
 import '../theme/app_theme.dart';
+import '../theme/image_viewer.dart';
 import '../theme/info_hint.dart';
 import '../theme/skeleton.dart';
 import '../utils/snake_marker.dart';
@@ -425,7 +426,9 @@ class _SpeciesCatalogPageState extends State<SpeciesCatalogPage> {
 
     final locale = context.locale.languageCode;
 
-    final popular = snake.localizedPopularName(locale);
+    // O cartão tem `maxLines: 1`, então exibe só o primeiro nome. A busca,
+    // logo acima, varre o campo inteiro com as variantes regionais.
+    final popular = snake.localizedPopularNameMain(locale);
 
     final risk = riskFromDentition(snake.dentition_type.toString());
 
@@ -459,7 +462,7 @@ class _SpeciesCatalogPageState extends State<SpeciesCatalogPage> {
 
               children: [
 
-                buildThumbnail(foto),
+                buildThumbnail(foto, snake),
 
                 const SizedBox(width: AppSpacing.md),
 
@@ -517,11 +520,11 @@ class _SpeciesCatalogPageState extends State<SpeciesCatalogPage> {
     );
   }
 
-  Widget buildThumbnail(String? url) {
+  Widget buildThumbnail(String? url, SnakeModel snake) {
 
     const double lado = 60;
 
-    return ClipRRect(
+    final miniatura = ClipRRect(
 
       borderRadius: BorderRadius.circular(12),
 
@@ -565,6 +568,36 @@ class _SpeciesCatalogPageState extends State<SpeciesCatalogPage> {
                 // cartão: cai no mesmo marcador neutro.
                 errorBuilder: (_, _, _) => buildThumbnailFallback(),
               ),
+      ),
+    );
+
+    if (url == null) return miniatura;
+
+    // 🔍 MINIATURA AMPLIÁVEL
+    // Tocar na foto amplia; tocar no resto do cartão abre a ficha. Em 60 px
+    // não dá para ver o desenho do corpo, que é o que se compara com o animal
+    // encontrado — e abrir a ficha inteira só para isso seria um passo a
+    // mais. O visualizador carrega a foto em resolução cheia, e não a
+    // miniatura de 200 px que a lista usa.
+    final heroTag = 'catalog_photo_${snake.id}';
+
+    return GestureDetector(
+      onTap: () => openImageViewer(
+        context,
+        image: NetworkImage(url),
+        title: snake.specie,
+        italicTitle: true,
+        heroTag: heroTag,
+      ),
+      child: Stack(
+        children: [
+          Hero(tag: heroTag, child: miniatura),
+          const Positioned(
+            right: 2,
+            bottom: 2,
+            child: ZoomBadge(size: 12),
+          ),
+        ],
       ),
     );
   }

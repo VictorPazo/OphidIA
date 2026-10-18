@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/snake_model.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_page_route.dart';
+import '../theme/image_viewer.dart';
 import '../theme/animated_entrance.dart';
 import '../theme/skeleton.dart';
 import 'snake_information.dart';
@@ -293,6 +294,63 @@ class _HistoryPageState
         .from('user-history')
 
         .getPublicUrl(path);
+  }
+
+  /// Título do card: nome popular em destaque e o científico logo abaixo,
+  /// no mesmo formato da ficha. Quem salvou uma "jiboia" reconhece o card
+  /// pelo nome que conhece, sem precisar lembrar de *Boa constrictor*.
+  ///
+  /// A consulta do histórico já traz `snakes(*)`, então o nome popular
+  /// estava disponível desde sempre; só não era exibido. Sem nome popular
+  /// cadastrado, o científico volta a ser o título, como antes.
+  Widget buildSpeciesTitle(Map<String, dynamic> snake) {
+
+    final String cientifico =
+        snake['specie']?.toString() ?? "unknown_species".tr();
+
+    String? popular;
+    try {
+      popular = SnakeModel.fromMap(snake)
+          .localizedPopularNameMain(context.locale.languageCode);
+    } catch (_) {
+      // Linha incompleta no banco não pode derrubar o histórico inteiro.
+      popular = null;
+    }
+
+    return Column(
+
+      crossAxisAlignment: CrossAxisAlignment.start,
+
+      children: [
+
+        Text(
+
+          popular ?? cientifico,
+
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            fontStyle: popular == null ? FontStyle.italic : null,
+          ),
+        ),
+
+        if (popular != null) ...[
+
+          const SizedBox(height: 2),
+
+          Text(
+
+            cientifico,
+
+            style: const TextStyle(
+              fontSize: 15,
+              fontStyle: FontStyle.italic,
+              color: Colors.black54,
+            ),
+          ),
+        ],
+      ],
+    );
   }
 
   @override
@@ -630,6 +688,25 @@ class _HistoryPageState
                   children: [
 
                     // 🖼️ FOTO
+                    // Tocar na foto amplia; tocar no resto do card abre a
+                    // ficha. A foto é a do avistamento do próprio usuário, e
+                    // examinar o detalhe dela é o motivo de voltar ao
+                    // histórico. O selo de lupa avisa que os dois toques são
+                    // diferentes.
+                    GestureDetector(
+
+                      onTap: () => openImageViewer(
+                        context,
+                        image: NetworkImage(imageUrl),
+                        title: snake['specie']?.toString() ?? '',
+                        italicTitle: true,
+                        heroTag: 'history_photo_${item['id']}',
+                      ),
+
+                      child: Stack(
+
+                        children: [
+
                     ClipRRect(
 
                       borderRadius:
@@ -640,7 +717,11 @@ class _HistoryPageState
                         ),
                       ),
 
-                      child: Image.network(
+                      child: Hero(
+
+                        tag: 'history_photo_${item['id']}',
+
+                        child: Image.network(
 
                         imageUrl,
 
@@ -675,6 +756,16 @@ class _HistoryPageState
                           );
                         },
                       ),
+                      ),
+                    ),
+
+                          const Positioned(
+                            right: AppSpacing.sm,
+                            bottom: AppSpacing.sm,
+                            child: ZoomBadge(),
+                          ),
+                        ],
+                      ),
                     ),
 
                     Padding(
@@ -692,20 +783,7 @@ class _HistoryPageState
                         children: [
 
                           // 🐍 NOME
-                          Text(
-
-                            snake['specie']
-                                ?? "unknown_species".tr(),
-
-                            style:
-                            const TextStyle(
-
-                              fontSize: 24,
-
-                              fontWeight:
-                              FontWeight.bold,
-                            ),
-                          ),
+                          buildSpeciesTitle(snake),
 
                           const SizedBox(
                             height: AppSpacing.md,

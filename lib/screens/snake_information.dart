@@ -8,6 +8,7 @@ import '../services/snake_info.dart';
 import '../theme/app_page_route.dart';
 import '../theme/app_theme.dart';
 import '../theme/animated_entrance.dart';
+import '../theme/image_viewer.dart';
 import '../theme/info_hint.dart';
 import '../utils/dentition_helper.dart';
 import '../utils/snake_risk.dart';
@@ -65,11 +66,54 @@ class _SnakeInformationScreenState
   bool get isNewIdentification => widget.heroTag != null;
   static const int _fullDisclaimerViews = 3;
 
+  /// Fichas das alternativas do ranking, por nome científico. Ficam null
+  /// enquanto carregam e quando a espécie não tem linha no banco.
+  final Map<String, SnakeModel?> fichasAlternativas = {};
+
   @override
   void initState() {
     super.initState();
     loadShowConfidenceSetting();
     loadDisclaimerState();
+    carregarFichasAlternativas();
+  }
+
+  // 🥈 FICHAS DAS ALTERNATIVAS
+  // Carregadas já na abertura da tela por dois motivos. O primeiro é mostrar
+  // o nome popular de cada alternativa, que o ranking do servidor não traz.
+  // O segundo corrige um defeito: a alternativa só ficava tocável quando o
+  // ranking trazia `snake_id`, que o servidor preenche apenas para as 26
+  // Bothrops do mapeamento antigo. Quase todas apareciam como "sem ficha"
+  // mesmo tendo linha no banco. Com a ficha carregada, a resposta é exata.
+  //
+  // São no máximo duas consultas, em paralelo, e uma falha de rede em uma
+  // delas não impede a outra nem a tela.
+  Future<void> carregarFichasAlternativas() async {
+
+    final especies = widget.ranking
+        .skip(1)
+        .map((alt) => (alt["specie"] ?? "").toString())
+        .where((specie) => specie.isNotEmpty)
+        .toList();
+
+    if (especies.isEmpty) return;
+
+    final servico = SnakeInformationService();
+
+    final fichas = await Future.wait(
+      especies.map((specie) => servico
+          .getSnakeBySpecie(specie)
+          .then<SnakeModel?>((ficha) => ficha)
+          .catchError((_) => null)),
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      for (int i = 0; i < especies.length; i++) {
+        fichasAlternativas[especies[i]] = fichas[i];
+      }
+    });
   }
 
   Future<void> loadDisclaimerState() async {
@@ -239,7 +283,9 @@ class _SnakeInformationScreenState
     final bool hasConfidence = widget.confidence > 0;
 
     final locale = context.locale.languageCode;
-    final popularName = widget.snake.localizedPopularName(locale);
+    // Só o primeiro nome: o título não comporta a lista de variantes
+    // regionais, que fica guardada no campo para a busca encontrar.
+    final popularName = widget.snake.localizedPopularNameMain(locale);
     final dentitionLabel = dentitionTranslationKey(
       widget.snake.dentition_type.toString(),
     ).tr();
@@ -269,9 +315,13 @@ class _SnakeInformationScreenState
       },
     );
 
-    if (widget.heroTag != null) {
-      snakeImage = Hero(tag: widget.heroTag!, child: snakeImage);
-    }
+    // Hero sempre presente: com o tag da câmera numa identificação nova, para
+    // a transição de lá até aqui, e com um tag da espécie nos outros casos,
+    // para a foto crescer até o visualizador ampliado. Hero não pode ficar
+    // dentro de outro Hero, então é um só, servindo às duas transições.
+    final Object fotoHeroTag =
+        widget.heroTag ?? 'species_photo_${widget.snake.id}';
+    snakeImage = Hero(tag: fotoHeroTag, child: snakeImage);
 
     return Scaffold(
 
@@ -289,9 +339,31 @@ class _SnakeInformationScreenState
         child: Column(
           children: [
 
-            ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: snakeImage,
+            // 🔍 FOTO AMPLIÁVEL
+            // A foto de 250px mostra a espécie, mas não o detalhe das
+            // escamas e do desenho, que é justamente o que se compara com o
+            // animal visto. Tocar abre o mesmo visualizador das dentições.
+            GestureDetector(
+              onTap: () => openImageViewer(
+                context,
+                image: NetworkImage(image),
+                title: widget.snake.specie,
+                italicTitle: true,
+                heroTag: fotoHeroTag,
+              ),
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: snakeImage,
+                  ),
+                  const Positioned(
+                    right: AppSpacing.sm,
+                    bottom: AppSpacing.sm,
+                    child: ZoomBadge(),
+                  ),
+                ],
+              ),
             ),
 
             const SizedBox(height: AppSpacing.lg),
@@ -304,15 +376,30 @@ class _SnakeInformationScreenState
                     textAlign: TextAlign.center,
                     style: AppTextStyles.screenTitle,
                   ),
+                  // O nome científico fica numa pílula translúcida porque esta
+                  // tela tem fundo verde-escuro: o cinza-escuro usado no
+                  // catálogo e no histórico, que têm fundo branco, aqui quase
+                  // desaparecia. A pílula segue o mesmo branco a 10% do aviso
+                  // de risco baixo, para não introduzir um elemento novo.
                   if (popularName != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.snake.specie,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontStyle: FontStyle.italic,
-                        color: Colors.black54,
+                    const SizedBox(height: AppSpacing.sm),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        widget.snake.specie,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontStyle: FontStyle.italic,
+                          color: AppColors.onBackgroundMuted,
+                        ),
                       ),
                     ),
                   ],
@@ -609,7 +696,16 @@ class _SnakeInformationScreenState
 
     final specie = (alt["specie"] ?? "").toString();
     final conf = (alt["confidence"] as num?)?.toDouble() ?? 0;
-    final temFicha = alt["snake_id"] != null;
+
+    final ficha = fichasAlternativas[specie];
+    final popular = ficha?.localizedPopularNameMain(
+      context.locale.languageCode,
+    );
+
+    // Enquanto a ficha não chega, cai no critério antigo em vez de exibir
+    // "sem ficha" por um instante e trocar logo depois.
+    final bool carregou = fichasAlternativas.containsKey(specie);
+    final temFicha = carregou ? ficha != null : alt["snake_id"] != null;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -629,13 +725,28 @@ class _SnakeInformationScreenState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Mesmo formato da ficha e do histórico: o nome
+                      // popular em destaque quando existe, o científico em
+                      // itálico logo abaixo.
                       Text(
-                        specie,
-                        style: const TextStyle(
+                        popular ?? specie,
+                        style: TextStyle(
                           fontSize: 15,
-                          fontStyle: FontStyle.italic,
+                          fontWeight:
+                              popular != null ? FontWeight.w600 : null,
+                          fontStyle:
+                              popular == null ? FontStyle.italic : null,
                         ),
                       ),
+                      if (popular != null)
+                        Text(
+                          specie,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontStyle: FontStyle.italic,
+                            color: Colors.black54,
+                          ),
+                        ),
                       const SizedBox(height: 6),
 
                       // Barra proporcional à confiança: dá a noção de
@@ -690,8 +801,10 @@ class _SnakeInformationScreenState
 
   Future<void> openAlternative(String specie) async {
 
-    final servico = SnakeInformationService();
-    final outra = await servico.getSnakeBySpecie(specie);
+    // A ficha normalmente já veio no carregamento da tela; só consulta de
+    // novo se ela ainda não tinha chegado.
+    final outra = fichasAlternativas[specie] ??
+        await SnakeInformationService().getSnakeBySpecie(specie);
 
     if (!mounted) return;
 
@@ -1172,21 +1285,10 @@ class _SnakeInformationScreenState
                     // Sem um sinal visível, ninguém descobre que a imagem
                     // abre — toque em imagem não é gesto óbvio numa ficha
                     // de leitura.
-                    Positioned(
+                    const Positioned(
                       right: 0,
                       bottom: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(AppSpacing.xs),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.55),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.zoom_in,
-                          size: 18,
-                          color: Colors.white,
-                        ),
-                      ),
+                      child: ZoomBadge(),
                     ),
                   ],
                 ),
@@ -1201,85 +1303,14 @@ class _SnakeInformationScreenState
   // 🔍 VISUALIZADOR AMPLIADO
   // A miniatura de 150px basta para reconhecer o tipo de dentição, mas não
   // para examinar a posição e o formato das presas — que é o detalhe que
-  // distingue uma solenóglifa de uma proteróglifa. Aqui a imagem abre em tela
-  // cheia, com pinça para aproximar e arrastar para navegar.
+  // distingue uma solenóglifa de uma proteróglifa. O visualizador em si vive
+  // em theme/image_viewer.dart, compartilhado com as fotos das serpentes.
   void openDentitionViewer(String imageAsset, String dentitionName) {
-
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        opaque: false,
-        barrierColor: Colors.black87,
-        barrierDismissible: true,
-
-        // Sem transição própria: quem anima é o Hero da imagem, saindo da
-        // miniatura e crescendo até a tela cheia.
-        transitionDuration: const Duration(milliseconds: 250),
-
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return Scaffold(
-            backgroundColor: Colors.transparent,
-
-            body: SafeArea(
-              child: Stack(
-                children: [
-
-                  // Toque em qualquer lugar fora da imagem fecha — é o gesto
-                  // que as pessoas tentam primeiro.
-                  Positioned.fill(
-                    child: GestureDetector(
-                      onTap: () => Navigator.of(context).pop(),
-                      behavior: HitTestBehavior.opaque,
-                      child: const SizedBox.expand(),
-                    ),
-                  ),
-
-                  Center(
-                    child: Hero(
-                      tag: 'dentition_$imageAsset',
-                      child: InteractiveViewer(
-                        minScale: 1,
-                        maxScale: 5,
-                        child: Image.asset(
-                          imageAsset,
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) =>
-                              const SizedBox.shrink(),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  Positioned(
-                    top: AppSpacing.sm,
-                    left: AppSpacing.sm,
-                    right: AppSpacing.sm,
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            dentitionName,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(Icons.close),
-                          color: Colors.white,
-                          tooltip: "close".tr(),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
+    openImageViewer(
+      context,
+      image: AssetImage(imageAsset),
+      title: dentitionName,
+      heroTag: 'dentition_$imageAsset',
     );
   }
 }

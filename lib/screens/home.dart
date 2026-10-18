@@ -249,6 +249,22 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  /// Título da janela do marcador: o primeiro nome popular cadastrado, ou o
+  /// científico quando a espécie ainda não tem nome popular.
+  String nomeDoMarcador(Map<String, dynamic> snake) {
+
+    final cientifico = snake['specie']?.toString() ?? '';
+
+    try {
+      return SnakeModel.fromMap(snake)
+              .localizedPopularNameMain(context.locale.languageCode) ??
+          cientifico;
+    } catch (_) {
+      // Linha incompleta no banco não pode tirar o avistamento do mapa.
+      return cientifico;
+    }
+  }
+
   Future<void> loadSnakeMarkers() async {
 
     try {
@@ -373,8 +389,13 @@ class _HomePageState extends State<HomePage> {
 
             infoWindow: InfoWindow(
 
-              title:
-              snake['specie'],
+              // Nome popular no título: quem olha o mapa procura o que foi
+              // visto perto de casa e reconhece "jararaca" antes de
+              // Bothrops jararaca. O científico não cabe junto — a janela
+              // corta o que passa da largura e empurraria para fora o "toque
+              // para ver", que é o que ensina que ela abre a ficha. Ele fica
+              // a um toque, logo abaixo do título da ficha.
+              title: nomeDoMarcador(snake),
 
               // A cor sozinha não basta: parte das pessoas não distingue
               // vermelho de verde, então o texto sempre repete o risco. O

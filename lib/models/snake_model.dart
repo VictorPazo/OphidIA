@@ -120,9 +120,28 @@ class SnakeModel {
     return ptValue;
   }
 
+  /// Todos os nomes populares cadastrados, separados por vírgula.
+  ///
+  /// Uma espécie costuma ter nome diferente em cada região, e quem procura
+  /// pelo nome da sua região precisa encontrá-la. É este campo inteiro que a
+  /// busca do catálogo varre.
   String? localizedPopularName(String languageCode) {
     final value = _localized(languageCode, popularNamePt, popularNameEn);
     return _isCurated(value) ? value : null;
+  }
+
+  /// Só o primeiro nome da lista, que é o que aparece na tela.
+  ///
+  /// O título da ficha e o cartão do catálogo têm espaço para um nome, não
+  /// para uma lista: `maxLines: 1` cortaria as variantes no meio de uma
+  /// palavra. A convenção é escrever o nome mais conhecido primeiro no
+  /// cadastro, e os regionais depois dele.
+  String? localizedPopularNameMain(String languageCode) {
+    final completo = localizedPopularName(languageCode);
+    if (completo == null) return null;
+
+    final primeiro = completo.split(',').first.trim();
+    return primeiro.isEmpty ? null : primeiro;
   }
 
   String? localizedDescription(String languageCode) =>
