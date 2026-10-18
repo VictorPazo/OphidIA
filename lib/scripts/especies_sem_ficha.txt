@@ -1,0 +1,25 @@
+Especies que o modelo reconhece mas que NAO tem linha na tabela
+snakes. Nao adianta dar nome popular: precisam da ficha antes.
+
+Boa atlantica
+Bothrocophias microphthalmus
+Chironius
+Hydrodynastes
+Leptodeira pulchriceps
+Leptodeira tarairiu
+Leptophis dibernardoi
+Mastigodryas pleii
+Taeniophallus affinis
+Taeniophallus bilineatus
+Taeniophallus occipitalis
+Tantilla selmae
+Thamnodynastes
+Thamnodynastes almae
+Thamnodynastes chaquensis
+Thamnodynastes hypoconia
+Thamnodynastes lanei
+Thamnodynastes nattereri
+Thamnodynastes phoenix
+Thamnodynastes ramonriveroi
+Thamnodynastes strigatus
+Tomodon ocellatus
