@@ -129,7 +129,20 @@ class _CameraPageState
         selectedCameraIndex = 0;
       }
 
-      await _controller?.dispose();
+      // A câmera antiga sai da tela ANTES de ser descartada. O descarte é
+      // assíncrono, e qualquer redesenho no meio dele — o chip de zoom, o
+      // flash, o próprio setState lá de cima — chamava CameraPreview sobre
+      // uma controller já descartada, e a tela inteira virava o quadro
+      // vermelho de erro. Acontecia ao trocar para a câmera frontal.
+      // Com _controller nulo, o preview mostra o indicador de carregamento
+      // até a câmera nova ficar pronta.
+      final antiga = _controller;
+      if (mounted) {
+        setState(() {
+          _controller = null;
+        });
+      }
+      await antiga?.dispose();
 
       _controller = CameraController(
         cameras[selectedCameraIndex],
